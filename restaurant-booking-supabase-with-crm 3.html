@@ -1,0 +1,1468 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Table Bookings</title>
+<!--
+  ============================================================
+  RESTAURANT BOOKING SYSTEM — Supabase edition
+  ============================================================
+  SETUP (once):
+  1. Run booking-supabase-setup.sql in your Supabase project
+     (SQL Editor -> New query -> paste -> Run).
+  2. Supabase -> Authentication -> Users -> Add user:
+     create a staff email + password for the admin panel.
+  3. Supabase -> Project Settings -> API: copy the Project URL
+     and the "anon public" key into CONFIG below.
+  4. Upload this file anywhere (GitHub Pages, cPanel, iframe).
+
+  WHAT'S DIFFERENT FROM THE LOCAL VERSION:
+  - Bookings save to Supabase: every device sees the same list.
+  - Overbooking is blocked by the database itself, even if two
+    people confirm at the same second.
+  - Customers can never read other people's details: the public
+    key can only ask "how many seats are taken" and "create a
+    booking" - nothing else.
+  - Staff sign in (bottom of page -> "Staff") to monitor:
+    live seats per sitting, the day's list, cancel/delete,
+    CSV export, auto-refresh, and capacity editing.
+  ============================================================
+-->
+<style>
+  :root{
+    --brand:#7a2e2e;
+    --brand-dark:#571e1e;
+    --paper:#faf7f0;
+    --panel:#ffffff;
+    --ink:#241f1c;
+    --soft:#6d655c;
+    --line:#e6dfd2;
+    --ok:#1e7a4f;
+    --warn:#a06a00;
+    --err:#b3364f;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{
+    background:var(--paper);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Helvetica Neue',Arial,sans-serif;
+    line-height:1.6;-webkit-font-smoothing:antialiased;
+  }
+  .serif{font-family:Georgia,'Times New Roman',serif}
+
+  header{
+    background:var(--panel);border-bottom:1px solid var(--line);
+    padding:18px 22px;display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;
+  }
+  .brand{display:flex;align-items:center;gap:12px}
+  .brand-mark{width:38px;height:38px;border-radius:50%;background:var(--brand);color:#fff;display:flex;align-items:center;justify-content:center;font-family:Georgia,serif;font-size:19px}
+  .brand h1{font-family:Georgia,serif;font-size:20px;font-weight:600}
+  .brand small{display:block;font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--soft);font-family:-apple-system,sans-serif}
+
+  .btn{
+    display:inline-block;border:none;cursor:pointer;text-decoration:none;text-align:center;
+    font-family:inherit;font-weight:600;font-size:15px;border-radius:8px;
+    padding:13px 24px;transition:background .2s,opacity .2s;-webkit-tap-highlight-color:transparent;
+  }
+  .btn-brand{background:var(--brand);color:#fff}
+  .btn-brand:hover{background:var(--brand-dark)}
+  .btn-ghost{background:transparent;border:1.5px solid var(--brand);color:var(--brand)}
+  .btn-ghost:hover{background:var(--brand);color:#fff}
+  .btn-soft{background:#efe9dd;color:var(--ink)}
+  .btn-danger{background:transparent;border:1.5px solid var(--err);color:var(--err);padding:8px 14px;font-size:13px}
+  .btn:disabled{opacity:.5;cursor:not-allowed}
+  .btn.busy{opacity:.6;pointer-events:none}
+
+  .page{max-width:680px;margin:0 auto;padding:34px 20px 80px}
+  .intro{text-align:center;margin-bottom:26px}
+  .intro h2{font-family:Georgia,serif;font-size:clamp(26px,5vw,34px);font-weight:600}
+  .intro p{color:var(--soft);margin-top:8px;font-size:15px}
+
+  .card{
+    background:var(--panel);border:1px solid var(--line);border-radius:14px;
+    padding:26px 24px;box-shadow:0 6px 26px rgba(36,31,28,.06);
+  }
+  .field{margin-bottom:16px}
+  label{display:block;font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--soft);margin-bottom:6px}
+  input,select,textarea{
+    width:100%;min-width:0;background:#fdfcf9;border:1.5px solid var(--line);border-radius:8px;
+    font-family:inherit;font-size:16px;color:var(--ink);padding:12px 13px;outline:none;
+    transition:border-color .2s;
+  }
+  input[type="date"]{-webkit-appearance:none;appearance:none;min-height:49px}
+  input:focus,select:focus,textarea:focus{border-color:var(--brand)}
+  textarea{min-height:76px;resize:vertical}
+  .row{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .row .field{min-width:0}
+  @media(max-width:480px){.row{grid-template-columns:1fr}}
+
+  .slot-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px}
+  .slot{
+    border:1.5px solid var(--line);border-radius:8px;background:#fdfcf9;cursor:pointer;
+    padding:12px 8px;text-align:center;font-weight:600;font-size:15px;transition:all .2s;
+    -webkit-tap-highlight-color:transparent;
+  }
+  .slot.picked{border-color:var(--brand);background:var(--brand);color:#fff}
+  .slot .cap{display:block;font-size:11px;font-weight:400;margin-top:2px;opacity:.75}
+
+  .msg{border-radius:8px;padding:13px 15px;font-size:14.5px;margin:14px 0;display:none;line-height:1.55}
+  .msg.show{display:block}
+  .msg-ok{background:#e8f4ec;color:var(--ok);border:1px solid #bfe0cc}
+  .msg-warn{background:#faf3e2;color:var(--warn);border:1px solid #ecd9a8}
+  .msg-err{background:#fae8ec;color:var(--err);border:1px solid #eec3cd}
+  .msg .linklike{color:inherit;font-weight:700;text-decoration:underline;cursor:pointer}
+
+  .summary{border:1px solid var(--line);border-radius:10px;overflow:hidden;margin:16px 0}
+  .summary-row{display:flex;justify-content:space-between;gap:14px;padding:11px 15px;font-size:14.5px}
+  .summary-row:nth-child(odd){background:#faf7f0}
+  .summary-row b{font-weight:700}
+  .ref{
+    text-align:center;background:var(--brand);color:#fff;border-radius:10px;
+    padding:16px;margin:16px 0;font-size:14px;letter-spacing:.04em;
+  }
+  .ref b{display:block;font-size:22px;font-family:Georgia,serif;letter-spacing:.12em;margin-top:2px}
+  .step{display:none}
+  .step.on{display:block}
+  .step-actions{display:flex;gap:12px;flex-wrap:wrap;margin-top:6px}
+  .step-actions .btn{flex:1;min-width:140px}
+  .contact-note{text-align:center;font-size:13px;color:var(--soft);margin-top:18px}
+  .contact-note a{color:var(--brand);font-weight:600;text-decoration:none}
+
+  #modal{
+    display:none;position:fixed;inset:0;z-index:100;background:rgba(36,31,28,.55);
+    align-items:flex-start;justify-content:center;padding:30px 16px;overflow-y:auto;
+  }
+  #modal.open{display:flex}
+  .modal-card{background:var(--paper);border-radius:16px;max-width:640px;width:100%;padding:10px;position:relative}
+  .modal-close{
+    position:absolute;top:10px;right:12px;z-index:5;background:var(--panel);border:1px solid var(--line);
+    width:38px;height:38px;border-radius:50%;font-size:19px;cursor:pointer;line-height:1;color:var(--ink);
+  }
+
+  footer{border-top:1px solid var(--line);padding:22px;text-align:center;color:var(--soft);font-size:13px}
+  footer button{background:none;border:none;color:var(--soft);font-size:12px;cursor:pointer;text-decoration:underline;margin-top:6px}
+
+  /* ---------- staff panel ---------- */
+  #admin{max-width:980px;margin:0 auto;padding:30px 20px 80px;display:none}
+  #admin.on{display:block}
+  #admin h2{font-family:Georgia,serif;font-size:26px;margin-bottom:4px}
+  #admin .sub{color:var(--soft);font-size:14px;margin-bottom:20px}
+
+  .login-box{max-width:380px;margin:0 auto;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:26px}
+  .login-box h3{font-family:Georgia,serif;font-size:20px;margin-bottom:14px;text-align:center}
+
+  .admin-bar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:18px}
+  .admin-bar input[type="date"]{max-width:180px}
+  .admin-bar .grow{flex:1}
+  .chk{display:flex;align-items:center;gap:7px;font-size:13px;color:var(--soft)}
+  .chk input{width:auto}
+
+  .cap-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:22px}
+  .cap-card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px;text-align:center}
+  .cap-card b{display:block;font-family:Georgia,serif;font-size:24px;color:var(--brand)}
+  .cap-card span{font-size:11.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--soft)}
+
+  .tbl-wrap{overflow-x:auto;background:var(--panel);border:1px solid var(--line);border-radius:10px}
+  table{width:100%;border-collapse:collapse;font-size:13.5px;min-width:760px}
+  th{background:#f2ede2;text-align:left;padding:11px 12px;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--soft)}
+  td{padding:11px 12px;border-top:1px solid var(--line);vertical-align:top}
+  .status{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:4px 10px;border-radius:100px}
+  .status.confirmed{background:#e8f4ec;color:var(--ok)}
+  .status.cancelled{background:#f3f0ea;color:var(--soft)}
+  .empty{padding:26px;text-align:center;color:var(--soft)}
+  @keyframes rowFlash{
+    0%{background:#dff3e6}
+    70%{background:#dff3e6}
+    100%{background:transparent}
+  }
+  tr.flash td{animation:rowFlash 3s ease forwards}
+  .settings-line{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px;margin-bottom:22px}
+  .settings-line .field{margin:0;max-width:150px}
+  .crm-tabs{display:flex;gap:8px;margin-bottom:18px;border-bottom:1px solid var(--line)}
+  .crm-tab{background:none;border:none;font-family:inherit;font-size:14px;font-weight:600;color:var(--soft);
+    padding:11px 18px;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px}
+  .crm-tab.on{color:var(--brand);border-bottom-color:var(--brand)}
+  .g-flag{display:inline-block;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
+    padding:3px 9px;border-radius:100px;margin-left:8px}
+  .g-flag.vip{background:#f6efd9;color:#a06a00}
+  .g-flag.risk{background:#fae8ec;color:var(--err)}
+  .g-flag.new{background:#e8f4ec;color:var(--ok)}
+  .g-name{font-weight:600}
+  .gp-card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:22px;margin-bottom:16px}
+  .gp-head{display:flex;align-items:center;gap:14px;margin-bottom:16px}
+  .gp-avatar{width:48px;height:48px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:16px;flex-shrink:0}
+  .gp-name{font-weight:700;font-size:16px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .gp-contact{font-size:13px;color:var(--soft);margin-top:2px}
+  .gp-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;padding:14px 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line);margin-bottom:14px}
+  .gp-stats b{display:block;font-size:20px;font-weight:700}
+  .gp-stats span{font-size:11px;color:var(--soft)}
+  .gp-hist-title{font-size:12px;color:var(--soft);font-weight:600;margin-bottom:10px}
+  .gp-hist{width:100%;border-collapse:collapse;font-size:12.5px}
+  .gp-hist td{padding:9px 0;border-top:1px solid var(--line)}
+  .g-sub{font-size:12px;color:var(--soft)}
+  .spin{display:inline-block;animation:sp 1s linear infinite}
+  @keyframes sp{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <div class="brand-mark serif" id="brandMark">M</div>
+    <div>
+      <h1 id="brandName">Restaurant</h1>
+      <small>Table bookings</small>
+    </div>
+  </div>
+  <button class="btn btn-brand" id="openModalBtn">Book a Table</button>
+</header>
+
+<main class="page" id="inlineHome">
+  <div class="intro">
+    <h2 class="serif" id="introTitle">Reserve your table</h2>
+    <p id="introText">Choose a date, tell us how many of you are coming, and we'll take care of the rest.</p>
+  </div>
+
+  <div class="card" id="bookingWidget">
+
+    <!-- STEP 1 — details -->
+    <div class="step on" id="step1">
+      <div class="row">
+        <div class="field">
+          <label for="bkDate">Date</label>
+          <input type="date" id="bkDate">
+        </div>
+        <div class="field">
+          <label for="bkGuests">Guests</label>
+          <select id="bkGuests"></select>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Preferred sitting <span style="text-transform:none;font-weight:400">(quick pick)</span></label>
+        <div class="slot-row" id="slotRow"></div>
+      </div>
+
+      <div class="field">
+        <label for="bkTime">Arrival time</label>
+        <select id="bkTime"></select>
+        <div id="timeNote" style="font-size:12.5px;color:var(--soft);margin-top:6px"></div>
+      </div>
+
+      <div class="row">
+        <div class="field">
+          <label for="bkName">Full name</label>
+          <input type="text" id="bkName" autocomplete="name" placeholder="Jane Citizen">
+        </div>
+        <div class="field">
+          <label for="bkPhone">Phone</label>
+          <input type="tel" id="bkPhone" autocomplete="tel" placeholder="0400 000 000">
+        </div>
+      </div>
+      <div class="field">
+        <label for="bkEmail">Email</label>
+        <input type="email" id="bkEmail" autocomplete="email" placeholder="jane@email.com">
+      </div>
+      <div class="field">
+        <label for="bkNotes">Special requests <span style="text-transform:none;font-weight:400">(optional)</span></label>
+        <textarea id="bkNotes" placeholder="Allergies, celebrations, pram or wheelchair access…"></textarea>
+      </div>
+
+      <div class="msg" id="msg1"></div>
+      <button class="btn btn-brand" id="checkBtn" style="width:100%">Check Availability</button>
+    </div>
+
+    <!-- STEP 2 — confirm -->
+    <div class="step" id="step2">
+      <h3 class="serif" style="font-size:22px;margin-bottom:6px">Please confirm your booking</h3>
+      <p style="color:var(--soft);font-size:14px">We're holding these details — nothing is booked yet.</p>
+      <div class="summary" id="confirmSummary"></div>
+      <div class="msg" id="msg2"></div>
+      <div class="step-actions">
+        <button class="btn btn-soft" id="backBtn">Go back</button>
+        <button class="btn btn-brand" id="confirmBtn">Confirm Booking</button>
+      </div>
+    </div>
+
+    <!-- STEP 3 — done -->
+    <div class="step" id="step3">
+      <h3 class="serif" style="font-size:24px;margin-bottom:4px">Booking confirmed</h3>
+      <p style="color:var(--soft);font-size:14.5px" id="doneMsg"></p>
+      <div class="ref">Your booking reference<b id="refNo">—</b></div>
+      <div class="summary" id="doneSummary"></div>
+      <div class="step-actions">
+        <button class="btn btn-brand" id="newBookingBtn" style="width:100%">Make another booking</button>
+      </div>
+    </div>
+
+    <div class="contact-note" id="contactNote"></div>
+  </div>
+</main>
+
+<div id="modal">
+  <div class="modal-card">
+    <button class="modal-close" id="closeModalBtn" aria-label="Close">×</button>
+    <div id="modalBody"></div>
+  </div>
+</div>
+
+<!-- ---------- STAFF PANEL ---------- -->
+<section id="admin">
+  <h2 class="serif">Bookings — staff view</h2>
+  <p class="sub">Live from the booking database. Cancelling frees seats immediately for everyone.</p>
+
+  <!-- staff login -->
+  <div class="login-box" id="loginBox">
+    <h3>Staff sign in</h3>
+    <div class="field"><label for="adEmail">Email</label><input type="email" id="adEmail" autocomplete="username"></div>
+    <div class="field"><label for="adPass">Password</label><input type="password" id="adPass" autocomplete="current-password"></div>
+    <div class="msg" id="loginMsg"></div>
+    <button class="btn btn-brand" id="loginBtn" style="width:100%">Sign in</button>
+  </div>
+
+  <!-- monitoring tools -->
+  <div id="adminTools" style="display:none">
+    <div class="crm-tabs">
+      <button class="crm-tab on" id="tabBookingsBtn">Bookings</button>
+      <button class="crm-tab" id="tabGuestsBtn">Guests</button>
+    </div>
+
+  <div id="tabBookings">
+    <div class="admin-bar">
+      <input type="date" id="adDate">
+      <button class="btn btn-ghost" id="adTodayBtn" style="padding:11px 18px;font-size:14px">Today</button>
+      <button class="btn btn-ghost" id="adRefreshBtn" style="padding:11px 18px;font-size:14px">Refresh</button>
+      <label class="chk"><input type="checkbox" id="adAuto"> Auto-refresh 30s</label>
+      <label class="chk"><input type="checkbox" id="adSound"> 🔔 Sound on new booking</label>
+      <span class="chk" id="liveDot" style="display:none"><span style="width:8px;height:8px;border-radius:50%;background:var(--ok);display:inline-block;box-shadow:0 0 6px var(--ok)"></span> Live</span>
+      <span class="grow"></span>
+      <button class="btn btn-soft" id="adCsvBtn" style="padding:11px 18px;font-size:14px">Export CSV</button>
+      <button class="btn btn-soft" id="adLogoutBtn" style="padding:11px 18px;font-size:14px">Sign out</button>
+    </div>
+
+    <div class="cap-cards" id="capCards"></div>
+
+    <div class="settings-line">
+      <div class="field"><label for="setTotal">Total capacity</label><input type="number" id="setTotal" min="1"></div>
+      <div class="field"><label for="setOnline">Online seats</label><input type="number" id="setOnline" min="0"></div>
+      <button class="btn btn-ghost" id="setSaveBtn" style="padding:12px 20px;font-size:14px">Update capacity</button>
+      <span id="setMsg" style="font-size:13px;color:var(--ok)"></span>
+    </div>
+
+    <div class="tbl-wrap">
+      <table>
+        <thead>
+          <tr><th>Arrival</th><th>Sitting</th><th>Name</th><th>Guests</th><th>Phone</th><th>Email</th><th>Notes</th><th>Card</th><th>Status</th><th></th></tr>
+        </thead>
+        <tbody id="adRows"></tbody>
+      </table>
+      <div class="empty" id="adEmpty" style="display:none">No bookings for this date yet.</div>
+    </div>
+  </div><!-- /tabBookings -->
+
+  <div id="tabGuests" style="display:none">
+    <div class="admin-bar">
+      <input type="text" id="crmSearch" placeholder="Search name, email or phone…" style="max-width:280px">
+      <button class="btn btn-ghost" id="crmRefreshBtn" style="padding:11px 18px;font-size:14px">Refresh</button>
+      <span class="grow"></span>
+      <span id="crmCount" style="font-size:13px;color:var(--soft)"></span>
+    </div>
+    <div class="cap-cards" id="crmStats"></div>
+    <div id="guestProfile" style="display:none"></div>
+    <div class="tbl-wrap">
+      <table>
+        <thead>
+          <tr><th>Guest</th><th>Contact</th><th>Visits</th><th>Guests hosted</th><th>No-shows</th><th>Last visit</th><th></th></tr>
+        </thead>
+        <tbody id="crmRows"></tbody>
+      </table>
+      <div class="empty" id="crmEmpty" style="display:none">No guests yet — they appear here as bookings come in.</div>
+    </div>
+  </div><!-- /tabGuests -->
+
+  </div>
+</section>
+
+<footer>
+  <span id="footerLine"></span><br>
+  <button id="staffBtn">Staff</button>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+/* ============================================================
+   CONFIG - EDIT EVERYTHING FOR YOUR RESTAURANT HERE
+   ============================================================ */
+var CONFIG = {
+
+  /* — Supabase connection (Project Settings -> API) — */
+  supabaseUrl:     "https://YOUR-PROJECT.supabase.co",   // <- paste your Project URL
+  supabaseAnonKey: "PASTE-YOUR-ANON-PUBLIC-KEY-HERE",    // <- paste the anon public key
+
+  /* — Which restaurant this page books for —
+     Normally supplied by the website as ?venue=cafe-bojo, so ONE copy of
+     this page can serve every client. This is only the fallback when the
+     page is opened on its own. Leave "" if you are still on a
+     single-restaurant database (nothing else changes).                */
+  venue: "",
+
+  /* — Identity — */
+  /* Leave BLANK. One copy of this page serves every restaurant, so the
+     name comes from the venue code instead. Only fill this in if you are
+     hosting a private copy for a single restaurant.                     */
+  restaurantName: "",
+  contactPhone:   "+61 2 9000 0000",
+  contactEmail:   "bookings@example.com",
+
+  /* — Sittings & service times —
+     Customers can pick ANY arrival time between serviceStart and
+     serviceEnd (in timeStepMinutes steps). Each booking counts
+     toward the NEAREST sitting's capacity. The sitting buttons
+     act as quick picks to encourage the two main sittings.     */
+  timeSlots: [
+    { id: "s1", label: "6:00 PM", anchor: "18:00" },
+    { id: "s2", label: "8:00 PM", anchor: "20:00" }
+  ],
+  serviceStart: "17:30",     // first bookable arrival time (24h format)
+  serviceEnd:   "21:30",     // last bookable arrival time
+  timeStepMinutes: 30,       // gap between times in the picker
+
+  /* — Booking rules (capacity lives in Supabase settings) — */
+  minBookingSize: 1,
+  maxBookingSize: 12,
+  bookingWindowDays: 60,
+  openDays: [0,1,2,3,4,5,6],   // 0=Sun ... 6=Sat; closed Mondays => [0,2,3,4,5,6]
+
+  /* — Messages — */
+  confirmationMessage: "Thank you! Your table is booked. We look forward to seeing you.",
+  fullyBookedMessage:  "Sorry, we do not have availability for this number of guests at your selected time. Please try another date, a smaller group size, or contact the restaurant directly.",
+
+  /* — Buttons & text — */
+  checkButtonText:   "Check Availability",
+  confirmButtonText: "Confirm Booking",
+  bookButtonText:    "Book a Table",
+  introTitle:        "Reserve your table",
+  introText:         "Choose a date, tell us how many of you are coming, and we'll take care of the rest.",
+
+  /* — Card guarantee (Stripe) — parties of this size or larger must
+     save a card to guarantee the booking. No charge, no hold. — */
+  guaranteeThreshold: 8,          // require a card at 8+ guests (set 999 to disable)
+  feePerGuestCents:   1500,       // $15.00 per guest if they no-show
+  policyVersion:      "v1-2026",
+  functionsBase:      "",         // e.g. "https://YOURPROJECT.supabase.co/functions/v1"
+                                  // leave "" to auto-derive from supabaseUrl
+
+  /* — Brand colours — */
+  brandColor:     "#7a2e2e",
+  brandColorDark: "#571e1e"
+};
+/* ============================================================
+   END OF CONFIG
+   ============================================================ */
+
+/* ---------- helpers ---------- */
+function $(id){ return document.getElementById(id); }
+function pad(n){ return (n < 10 ? "0" : "") + n; }
+function todayStr(){
+  var d = new Date();
+  return d.getFullYear() + "-" + pad(d.getMonth()+1) + "-" + pad(d.getDate());
+}
+function addDays(dateStr, days){
+  var d = new Date(dateStr + "T00:00:00");
+  d.setDate(d.getDate() + days);
+  return d.getFullYear() + "-" + pad(d.getMonth()+1) + "-" + pad(d.getDate());
+}
+function prettyDate(dateStr){
+  var d = new Date(dateStr + "T00:00:00");
+  return d.toLocaleDateString(undefined, { weekday:"long", day:"numeric", month:"long", year:"numeric" });
+}
+function slotById(id){
+  for (var i = 0; i < CONFIG.timeSlots.length; i++){
+    if (CONFIG.timeSlots[i].id === id) return CONFIG.timeSlots[i];
+  }
+  return null;
+}
+/* ---------- time helpers ---------- */
+function toMin(hhmm){
+  var p = hhmm.split(":");
+  return parseInt(p[0],10)*60 + parseInt(p[1],10);
+}
+function fmt12(mins){
+  var h = Math.floor(mins/60), m = mins % 60;
+  var ap = h >= 12 ? "PM" : "AM";
+  var h12 = h % 12; if (h12 === 0) h12 = 12;
+  return h12 + ":" + pad(m) + " " + ap;
+}
+function serviceTimes(){
+  var out = [], t = toMin(CONFIG.serviceStart), end = toMin(CONFIG.serviceEnd);
+  while (t <= end){ out.push(t); t += CONFIG.timeStepMinutes; }
+  return out;
+}
+/* Every arrival time counts toward the NEAREST sitting (tie -> earlier) */
+function sittingForTime(mins){
+  var best = CONFIG.timeSlots[0], bestDiff = Infinity;
+  CONFIG.timeSlots.forEach(function(s){
+    var d = Math.abs(mins - toMin(s.anchor));
+    if (d < bestDiff){ bestDiff = d; best = s; }
+  });
+  return best;
+}
+function esc(s){
+  return String(s == null ? "" : s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+}
+function busy(btn, on){ btn.classList.toggle("busy", !!on); }
+
+/* ---------- Supabase REST helpers (no libraries needed) ---------- */
+var SB = CONFIG.supabaseUrl.replace(/\/+$/, "");
+var staffToken = null; // set after staff sign-in
+var settingsRowId = 1; // which booking_settings row this venue owns
+
+/* ---------- which restaurant is this page booking for? ----------
+   Read once, before anything else touches the URL. The website passes
+   ?venue=  (and optionally ?name= / ?phone=) when it opens this page. */
+var VENUE = "", VENUE_PARAMS = "";
+(function resolveVenue(){
+  var q = new URLSearchParams(location.search);
+  VENUE = (q.get("venue") || CONFIG.venue || "").trim();
+  if (!VENUE) return;
+  var name  = q.get("name");
+  var phone = q.get("phone");
+  CONFIG.restaurantName = name || VENUE.replace(/-+/g, " ")
+      .replace(/\b\w/g, function(c){ return c.toUpperCase(); });
+  if (phone) CONFIG.contactPhone = phone;
+  /* keep these when the URL is rewritten after a Stripe redirect */
+  var keep = new URLSearchParams();
+  keep.set("venue", VENUE);
+  if (name)  keep.set("name", name);
+  if (phone) keep.set("phone", phone);
+  VENUE_PARAMS = "?" + keep.toString();
+  document.title = "Book a table — " + CONFIG.restaurantName;
+})();
+/* opened bare, with no venue and no name configured */
+if (!CONFIG.restaurantName) CONFIG.restaurantName = "Table Bookings";
+
+function sbConfigured(){
+  return SB.indexOf("YOUR-PROJECT") === -1 && CONFIG.supabaseAnonKey.indexOf("PASTE-") === -1;
+}
+function sbHeaders(withAuth){
+  var h = { "apikey": CONFIG.supabaseAnonKey, "Content-Type": "application/json" };
+  h["Authorization"] = "Bearer " + (withAuth && staffToken ? staffToken : CONFIG.supabaseAnonKey);
+  return h;
+}
+async function sbRpc(fn, args){
+  var body = {};
+  for (var k in args) body[k] = args[k];
+  if (VENUE) body.p_venue = VENUE;   /* omitted on a single-restaurant database */
+  var res = await fetch(SB + "/rest/v1/rpc/" + fn, {
+    method: "POST", headers: sbHeaders(false), body: JSON.stringify(body)
+  });
+  if (!res.ok) throw new Error("rpc " + fn + " failed: " + res.status);
+  return res.json();
+}
+async function sbStaff(path, options){
+  options = options || {};
+  options.headers = Object.assign(sbHeaders(true), options.headers || {});
+  var res = await fetch(SB + "/rest/v1/" + path, options);
+  if (res.status === 401){ throw new Error("auth"); }
+  if (!res.ok) throw new Error("request failed: " + res.status);
+  var text = await res.text();
+  return text ? JSON.parse(text) : null;
+}
+
+/* ---------- Stripe functions base URL ---------- */
+function functionsBase(){
+  if (CONFIG.functionsBase) return CONFIG.functionsBase.replace(/\/+$/,"");
+  return SB.replace(/\/rest\/v1$/,"").replace(/\/+$/,"") + "/functions/v1";
+}
+
+/* ---------- handle the guest returning from Stripe ---------- */
+(function handleGuaranteeReturn(){
+  var q = new URLSearchParams(location.search);
+  var g = q.get("guarantee"), ref = q.get("ref");
+  if (!g) return;
+  // clean the URL so a refresh doesn't re-trigger
+  history.replaceState({}, "", location.pathname + VENUE_PARAMS);
+  window.addEventListener("load", function(){
+    if (g === "success"){
+      showGuaranteeResult(true, ref);
+    } else {
+      showGuaranteeResult(false, ref);
+    }
+  });
+})();
+function showGuaranteeResult(ok, ref){
+  var box = document.getElementById("bookingWidget");
+  if (!box) return;
+  goStep(3);
+  var refEl = $("refNo"); if (refEl && ref) refEl.textContent = ref;
+  var done = document.getElementById("doneMsg");
+  var title = document.querySelector("#step3 h3");
+  if (ok){
+    if (title) title.textContent = "Table secured";
+    if (done) done.innerHTML = "Thank you — your card is saved as a guarantee for your group booking. " +
+      "<b>You have not been charged.</b> We look forward to seeing you.";
+  } else {
+    if (title) title.textContent = "Card not saved";
+    if (done) done.innerHTML = "Your booking isn't confirmed yet because the card step was cancelled. " +
+      "Booking reference <b>" + (ref||"") + "</b> — please book again to secure your table, or call us on <b>" + CONFIG.contactPhone + "</b>.";
+  }
+}
+
+/* ---------- availability cache for the customer form ---------- */
+var avail = { date: null, online_seats: null, total_capacity: null, taken: {} };
+
+async function refreshAvailability(dateStr){
+  if (!sbConfigured()){
+    avail = { date: dateStr, online_seats: null, total_capacity: null, taken: {} };
+    return;
+  }
+  try {
+    var data = await sbRpc("get_availability", { p_date: dateStr });
+    avail = {
+      date: dateStr,
+      online_seats: data.online_seats,
+      total_capacity: data.total_capacity,
+      taken: data.taken || {}
+    };
+  } catch(e){
+    avail = { date: dateStr, online_seats: null, total_capacity: null, taken: {} };
+  }
+}
+function seatsLeft(slotId){
+  if (avail.online_seats == null) return null; // unknown (not configured / offline)
+  var taken = avail.taken[slotId] || 0;
+  return Math.max(0, avail.online_seats - taken);
+}
+function findAlternative(guests, excludeSlotId){
+  for (var i = 0; i < CONFIG.timeSlots.length; i++){
+    var s = CONFIG.timeSlots[i];
+    var left = seatsLeft(s.id);
+    if (s.id !== excludeSlotId && left !== null && left >= guests) return s;
+  }
+  return null;
+}
+
+/* ---------- apply CONFIG to the page ---------- */
+document.title = CONFIG.restaurantName === "Table Bookings"
+  ? "Table Bookings" : CONFIG.restaurantName + " — Table Bookings";
+document.documentElement.style.setProperty("--brand", CONFIG.brandColor);
+document.documentElement.style.setProperty("--brand-dark", CONFIG.brandColorDark);
+$("brandName").textContent = CONFIG.restaurantName;
+$("brandMark").textContent = CONFIG.restaurantName.charAt(0).toUpperCase();
+$("introTitle").textContent = CONFIG.introTitle;
+$("introText").textContent = CONFIG.introText;
+$("checkBtn").textContent = CONFIG.checkButtonText;
+$("confirmBtn").textContent = CONFIG.confirmButtonText;
+$("openModalBtn").textContent = CONFIG.bookButtonText;
+$("doneMsg").textContent = CONFIG.confirmationMessage;
+$("footerLine").textContent = CONFIG.restaurantName + " · " + CONFIG.contactPhone + " · " + CONFIG.contactEmail;
+$("contactNote").innerHTML = 'Prefer to talk to us? Call <a href="tel:' + CONFIG.contactPhone.replace(/\s+/g,"") + '">' + CONFIG.contactPhone + "</a>";
+
+/* Use the venue's real name from the database when it's available, so
+   "cafe-bojo" can display as "Café Bojo". Needs the optional get_venue
+   function; if it isn't there, the tidied venue code is used instead. */
+(async function nameFromDatabase(){
+  if (!VENUE || !sbConfigured()) return;
+  try {
+    var res = await fetch(SB + "/rest/v1/rpc/get_venue", {
+      method: "POST", headers: sbHeaders(false),
+      body: JSON.stringify({ p_venue: VENUE })
+    });
+    if (!res.ok) return;
+    var v = await res.json();
+    if (Array.isArray(v)) v = v[0];
+    if (!v || !v.name) return;
+    CONFIG.restaurantName = v.name;
+    $("brandName").textContent = v.name;
+    $("brandMark").textContent = v.name.charAt(0).toUpperCase();
+    $("footerLine").textContent = v.name + " · " + CONFIG.contactPhone + " · " + CONFIG.contactEmail;
+    document.title = v.name + " — Table Bookings";
+  } catch (e) { /* keep the name we already have */ }
+})();
+
+(function(){
+  var sel = $("bkGuests");
+  for (var n = CONFIG.minBookingSize; n <= CONFIG.maxBookingSize; n++){
+    var o = document.createElement("option");
+    o.value = n; o.textContent = n + (n === 1 ? " guest" : " guests");
+    sel.appendChild(o);
+  }
+  sel.value = Math.min(2, CONFIG.maxBookingSize);
+})();
+
+$("bkDate").min = todayStr();
+$("bkDate").max = addDays(todayStr(), CONFIG.bookingWindowDays);
+$("bkDate").value = todayStr();
+
+/* ---------- sitting quick-picks + arrival time ---------- */
+var pickedTime = toMin(CONFIG.timeSlots[0].anchor);  // selected arrival time in minutes
+function pickedSitting(){ return sittingForTime(pickedTime); }
+
+/* fill the arrival-time dropdown once */
+(function(){
+  var sel = $("bkTime");
+  serviceTimes().forEach(function(t){
+    var o = document.createElement("option");
+    o.value = t; o.textContent = fmt12(t);
+    sel.appendChild(o);
+  });
+  sel.value = pickedTime;
+  sel.addEventListener("change", function(){
+    pickedTime = parseInt(sel.value, 10);
+    renderSlots();
+    hideMsg("msg1");
+  });
+})();
+
+function renderSlots(){
+  var row = $("slotRow");
+  row.innerHTML = "";
+  var current = pickedSitting();
+  CONFIG.timeSlots.forEach(function(s){
+    var d = document.createElement("div");
+    d.className = "slot" + (s.id === current.id ? " picked" : "");
+    var left = seatsLeft(s.id);
+    d.innerHTML = s.label + '<span class="cap">' +
+      (left === null ? "&nbsp;" : left + " seats left") + "</span>";
+    d.addEventListener("click", function(){
+      /* quick pick: jump the arrival time to this sitting's anchor */
+      pickedTime = toMin(s.anchor);
+      $("bkTime").value = pickedTime;
+      renderSlots();
+      hideMsg("msg1");
+    });
+    row.appendChild(d);
+  });
+  $("timeNote").textContent = "Arriving at " + fmt12(pickedTime) +
+    " — this counts toward the " + current.label + " sitting.";
+}
+async function onDateChange(){
+  hideMsg("msg1");
+  await refreshAvailability($("bkDate").value);
+  renderSlots();
+}
+$("bkDate").addEventListener("change", onDateChange);
+onDateChange(); // initial load
+
+/* ---------- messages ---------- */
+function showMsg(id, type, html){
+  var el = $(id);
+  el.className = "msg show msg-" + type;
+  el.innerHTML = html;
+}
+function hideMsg(id){
+  $(id).className = "msg";
+  $(id).innerHTML = "";
+}
+function goStep(n){
+  ["step1","step2","step3"].forEach(function(s, i){
+    $(s).className = "step" + (i === n - 1 ? " on" : "");
+  });
+}
+
+/* ---------- STEP 1: check availability ---------- */
+var pendingBooking = null;
+
+$("checkBtn").addEventListener("click", async function(){
+  hideMsg("msg1");
+  var btn = this;
+
+  if (!sbConfigured()){
+    return showMsg("msg1","err","This booking page isn't connected yet. Please add the Supabase URL and key in the CONFIG section of the file.");
+  }
+
+  var dateStr = $("bkDate").value;
+  var guests  = parseInt($("bkGuests").value, 10);
+  var name    = $("bkName").value.trim();
+  var phone   = $("bkPhone").value.trim();
+  var email   = $("bkEmail").value.trim();
+  var notes   = $("bkNotes").value.trim();
+
+  if (!dateStr) return showMsg("msg1","err","Please choose a date.");
+  if (dateStr < todayStr()) return showMsg("msg1","err","That date has already passed — please pick a future date.");
+  if (dateStr > addDays(todayStr(), CONFIG.bookingWindowDays))
+    return showMsg("msg1","err","We take bookings up to " + CONFIG.bookingWindowDays + " days ahead. Please pick an earlier date.");
+  var weekday = new Date(dateStr + "T00:00:00").getDay();
+  if (CONFIG.openDays.indexOf(weekday) === -1)
+    return showMsg("msg1","err","Sorry, we are closed on that day. Please choose another date.");
+  if (!name)  return showMsg("msg1","err","Please enter your name.");
+  if (!phone || phone.replace(/\D/g,"").length < 6) return showMsg("msg1","err","Please enter a valid phone number.");
+  if (!email || email.indexOf("@") === -1 || email.indexOf(".") === -1)
+    return showMsg("msg1","err","Please enter a valid email address.");
+
+  busy(btn, true);
+  await refreshAvailability(dateStr);   // always check live before proceeding
+  busy(btn, false);
+
+  var sitting = pickedSitting();
+  var left = seatsLeft(sitting.id);
+  renderSlots();
+
+  if (left === null)
+    return showMsg("msg1","err","We couldn't reach the booking system just now. Please check your connection and try again, or call us on <b>" + CONFIG.contactPhone + "</b>.");
+
+  if (left >= guests){
+    pendingBooking = { date: dateStr, slotId: sitting.id, slotLabel: sitting.label,
+                       arrival: fmt12(pickedTime),
+                       guests: guests, name: name, phone: phone, email: email, notes: notes };
+    fillSummary("confirmSummary", pendingBooking);
+    hideMsg("msg2");
+    goStep(2);
+    return;
+  }
+
+  var alt = findAlternative(guests, sitting.id);
+  if (alt){
+    showMsg("msg1","warn",
+      "The " + sitting.label + " sitting doesn't have room for " + guests +
+      " guests around " + fmt12(pickedTime) + ", but <b>" + alt.label + "</b> does. " +
+      '<span class="linklike" id="takeAlt">Switch to ' + alt.label + "</span>");
+    document.getElementById("takeAlt").addEventListener("click", function(){
+      pickedTime = toMin(alt.anchor);
+      $("bkTime").value = pickedTime;
+      renderSlots();
+      hideMsg("msg1");
+      $("checkBtn").click();
+    });
+    return;
+  }
+
+  showMsg("msg1","err", CONFIG.fullyBookedMessage +
+    "<br><br>Call us on <b>" + CONFIG.contactPhone + "</b> — we may be able to help.");
+});
+
+/* ---------- STEP 2: confirm (atomic on the server) ---------- */
+$("backBtn").addEventListener("click", function(){ goStep(1); });
+
+$("confirmBtn").addEventListener("click", async function(){
+  if (!pendingBooking) return goStep(1);
+  var btn = this;
+  hideMsg("msg2");
+  busy(btn, true);
+
+  try {
+    /* The database checks capacity and inserts in one locked step —
+       overbooking is impossible even with simultaneous confirmations. */
+    var result = await sbRpc("create_booking", {
+      p_date:       pendingBooking.date,
+      p_slot_id:    pendingBooking.slotId,
+      p_slot_label: pendingBooking.slotLabel,
+      p_arrival:    pendingBooking.arrival,
+      p_guests:     pendingBooking.guests,
+      p_name:       pendingBooking.name,
+      p_phone:      pendingBooking.phone,
+      p_email:      pendingBooking.email,
+      p_notes:      pendingBooking.notes,
+      p_guarantee_threshold: CONFIG.guaranteeThreshold,
+      p_fee_per_guest_cents: CONFIG.feePerGuestCents
+    });
+
+    if (result && result.ok && result.needs_guarantee){
+      /* 8+ party: booking saved as awaiting_guarantee, now send them
+         to Stripe to save a card. Seats are already held. */
+      showMsg("msg2","warn","Securing your table — taking you to our secure card page…");
+      try {
+        var sess = await fetch(functionsBase() + "/create-guarantee-session", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "apikey": CONFIG.supabaseAnonKey },
+          body: JSON.stringify({ booking_id: result.booking_id })
+        }).then(function(r){ return r.json(); });
+        if (sess && sess.url){
+          window.location.href = sess.url;   // redirect to Stripe Checkout (setup mode)
+          return;
+        }
+        showMsg("msg2","err","We couldn't open the secure card page. Please try again or call us on <b>" + CONFIG.contactPhone + "</b>.");
+      } catch(e){
+        showMsg("msg2","err","We couldn't reach the secure card page. Please try again or call us on <b>" + CONFIG.contactPhone + "</b>.");
+      }
+    } else if (result && result.ok){
+      $("refNo").textContent = result.ref;
+      fillSummary("doneSummary", pendingBooking);
+      goStep(3);
+      pendingBooking = null;
+      refreshAvailability($("bkDate").value).then(renderSlots);
+    } else if (result && result.reason === "full"){
+      showMsg("msg2","err","Sorry — those seats were just taken (only " + result.seats_left +
+        " left at that sitting). Please go back and choose another sitting or date.");
+    } else {
+      showMsg("msg2","err","Something wasn't right with the details. Please go back and check them.");
+    }
+  } catch(e){
+    showMsg("msg2","err","We couldn't reach the booking system. Please try again in a moment, or call us on <b>" + CONFIG.contactPhone + "</b>.");
+  }
+  busy(btn, false);
+});
+
+function fillSummary(id, b){
+  $(id).innerHTML =
+    row("Restaurant", esc(CONFIG.restaurantName)) +
+    row("Date", prettyDate(b.date)) +
+    row("Arrival time", esc(b.arrival)) +
+    row("Sitting", esc(b.slotLabel)) +
+    row("Name", esc(b.name)) +
+    row("Guests", b.guests) +
+    row("Phone", esc(b.phone)) +
+    row("Email", esc(b.email)) +
+    (b.notes ? row("Requests", esc(b.notes)) : "");
+  function row(k, v){ return '<div class="summary-row"><span>' + k + "</span><b>" + v + "</b></div>"; }
+}
+
+$("newBookingBtn").addEventListener("click", function(){
+  $("bkName").value = ""; $("bkPhone").value = ""; $("bkEmail").value = ""; $("bkNotes").value = "";
+  hideMsg("msg1");
+  goStep(1);
+  onDateChange();
+});
+
+/* ---------- popup demo ---------- */
+var widget = $("bookingWidget");
+var inlineHome = $("inlineHome");
+$("openModalBtn").addEventListener("click", function(){
+  $("modalBody").appendChild(widget);
+  $("modal").classList.add("open");
+});
+function closeModal(){
+  $("modal").classList.remove("open");
+  inlineHome.appendChild(widget);
+}
+$("closeModalBtn").addEventListener("click", closeModal);
+$("modal").addEventListener("click", function(e){ if (e.target === $("modal")) closeModal(); });
+
+/* ============================================================
+   STAFF PANEL — Supabase Auth + monitoring tools
+   ============================================================ */
+$("staffBtn").addEventListener("click", function(){
+  $("admin").classList.add("on");
+  $("admin").scrollIntoView({ behavior:"smooth" });
+  var saved = null;
+  try { saved = sessionStorage.getItem("staff_token"); } catch(e){}
+  if (saved){ staffToken = saved; enterTools(); }
+});
+
+$("loginBtn").addEventListener("click", async function(){
+  hideMsg("loginMsg");
+  var btn = this;
+  var email = $("adEmail").value.trim();
+  var pass  = $("adPass").value;
+  if (!email || !pass) return showMsg("loginMsg","err","Enter your staff email and password.");
+  if (!sbConfigured()) return showMsg("loginMsg","err","Supabase URL/key not set in CONFIG yet.");
+
+  busy(btn, true);
+  try {
+    var res = await fetch(SB + "/auth/v1/token?grant_type=password", {
+      method: "POST",
+      headers: { "apikey": CONFIG.supabaseAnonKey, "Content-Type": "application/json" },
+      body: JSON.stringify({ email: email, password: pass })
+    });
+    var data = await res.json();
+    if (!res.ok || !data.access_token){
+      showMsg("loginMsg","err","Sign-in failed — check the email and password.");
+    } else {
+      staffToken = data.access_token;
+      try { sessionStorage.setItem("staff_token", staffToken); } catch(e){}
+      enterTools();
+    }
+  } catch(e){
+    showMsg("loginMsg","err","Couldn't reach the sign-in service. Check your connection.");
+  }
+  busy(btn, false);
+});
+
+function enterTools(){
+  $("loginBox").style.display = "none";
+  $("adminTools").style.display = "block";
+  $("adDate").value = todayStr();
+  renderAdmin();
+  startRealtime();
+}
+
+/* ---------- LIVE updates via Supabase Realtime ----------
+   Any insert/update/delete on the bookings table pushes an
+   event to this page instantly — no refresh needed. Falls
+   back silently to the Refresh button / auto-refresh if the
+   realtime connection can't be established.               */
+var rtClient = null, rtChannel = null, rtDebounce = null;
+
+function startRealtime(){
+  if (rtChannel || typeof supabase === "undefined" || !sbConfigured()) return;
+  try {
+    rtClient = supabase.createClient(SB, CONFIG.supabaseAnonKey);
+    rtClient.realtime.setAuth(staffToken); // respect RLS: staff sees changes
+    rtChannel = rtClient
+      .channel("bookings-live")
+      .on("postgres_changes",
+          { event: "*", schema: "public", table: "bookings" },
+          function(){
+            /* debounce bursts of changes into one redraw */
+            clearTimeout(rtDebounce);
+            rtDebounce = setTimeout(renderAdmin, 400);
+          })
+      .subscribe(function(status){
+        $("liveDot").style.display = (status === "SUBSCRIBED") ? "inline-flex" : "none";
+      });
+  } catch(e){ /* realtime unavailable — polling still works */ }
+}
+function stopRealtime(){
+  try {
+    if (rtChannel && rtClient){ rtClient.removeChannel(rtChannel); }
+  } catch(e){}
+  rtChannel = null; rtClient = null;
+  $("liveDot").style.display = "none";
+}
+
+$("adLogoutBtn").addEventListener("click", function(){
+  stopRealtime();
+  staffToken = null;
+  try { sessionStorage.removeItem("staff_token"); } catch(e){}
+  $("adminTools").style.display = "none";
+  $("loginBox").style.display = "block";
+});
+$("adTodayBtn").addEventListener("click", function(){ $("adDate").value = todayStr(); renderAdmin(); });
+$("adRefreshBtn").addEventListener("click", renderAdmin);
+$("adDate").addEventListener("change", renderAdmin);
+
+/* auto-refresh */
+var autoTimer = null;
+$("adAuto").addEventListener("change", function(){
+  if (this.checked){
+    autoTimer = setInterval(renderAdmin, 30000);
+  } else if (autoTimer){
+    clearInterval(autoTimer); autoTimer = null;
+  }
+});
+
+var lastRows = []; // kept for CSV export
+
+/* ---------- new-booking alerts: flash + chime ---------- */
+var knownRefs = {};          // refs already seen (per admin session)
+var primedDate = null;       // date we've baselined — no alerts on first load or date switch
+var audioCtx = null;
+
+/* iPad Safari only allows sound after a user gesture —
+   ticking the checkbox is that gesture, so we arm audio there. */
+$("adSound").addEventListener("change", function(){
+  if (this.checked && !audioCtx){
+    try {
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      audioCtx.resume && audioCtx.resume();
+    } catch(e){ audioCtx = null; }
+  }
+});
+
+function playChime(){
+  if (!$("adSound").checked || !audioCtx) return;
+  try {
+    var now = audioCtx.currentTime;
+    [ {f:880, t:0}, {f:1174.66, t:0.16} ].forEach(function(n){   // A5 then D6 — a friendly two-note ding
+      var osc = audioCtx.createOscillator();
+      var gain = audioCtx.createGain();
+      osc.type = "sine";
+      osc.frequency.value = n.f;
+      gain.gain.setValueAtTime(0.0001, now + n.t);
+      gain.gain.exponentialRampToValueAtTime(0.25, now + n.t + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + n.t + 0.5);
+      osc.connect(gain); gain.connect(audioCtx.destination);
+      osc.start(now + n.t); osc.stop(now + n.t + 0.55);
+    });
+  } catch(e){}
+}
+
+async function renderAdmin(){
+  if (!staffToken) return;
+  var dateStr = $("adDate").value || todayStr();
+
+  try {
+    /* capacity numbers */
+    var availData = await sbRpc("get_availability", { p_date: dateStr });
+    var settings = await sbStaff("booking_settings?select=*&limit=1");
+    if (settings && settings[0] && settings[0].id != null) settingsRowId = settings[0].id;
+    var s0 = settings && settings[0] ? settings[0] : { total_capacity: availData.total_capacity, online_seats: availData.online_seats };
+    $("setTotal").value = s0.total_capacity;
+    $("setOnline").value = s0.online_seats;
+
+    var cards = "";
+    var totalGuestsToday = 0;
+    CONFIG.timeSlots.forEach(function(s){
+      var taken = (availData.taken && availData.taken[s.id]) || 0;
+      totalGuestsToday += taken;
+      cards += '<div class="cap-card"><b>' + Math.max(0, availData.online_seats - taken) +
+               " / " + availData.online_seats + "</b><span>" + esc(s.label) + " seats left</span></div>";
+    });
+    cards += '<div class="cap-card"><b>' + totalGuestsToday + "</b><span>guests booked</span></div>";
+    cards += '<div class="cap-card"><b>' + Math.max(0, availData.total_capacity - availData.online_seats) + "</b><span>held for walk-ins</span></div>";
+    $("capCards").innerHTML = cards;
+
+    /* the day's bookings */
+    var list = await sbStaff("bookings?booking_date=eq." + dateStr +
+                             "&select=*&order=slot_label.asc,created_at.asc");
+    lastRows = list || [];
+
+    var rows = "";
+    lastRows.forEach(function(b){
+      rows += '<tr data-ref="' + esc(b.ref) + '">' +
+        "<td><b>" + esc(b.arrival_time || b.slot_label) + "</b></td>" +
+        "<td>" + esc(b.slot_label) + "</td>" +
+        "<td>" + esc(b.name) + "<br><small style='color:var(--soft)'>" + esc(b.ref) + "</small></td>" +
+        "<td>" + b.guests + "</td>" +
+        "<td>" + esc(b.phone) + "</td>" +
+        "<td>" + esc(b.email) + "</td>" +
+        "<td>" + (b.notes ? esc(b.notes) : "<span style='color:var(--soft)'>—</span>") + "</td>" +
+        "<td>" + cardCell(b) + "</td>" +
+        '<td><span class="status ' + statusClass(b.status) + '">' + statusLabel(b.status) + "</span></td>" +
+        "<td>" + actionCell(b) + "</td></tr>";
+    });
+    $("adRows").innerHTML = rows;
+    $("adEmpty").style.display = lastRows.length ? "none" : "block";
+
+    /* --- spot genuinely NEW bookings: flash the row, play the chime.
+       First load (or switching dates) just baselines silently.      */
+    var isPrimed = (primedDate === dateStr);
+    var newOnes = [];
+    lastRows.forEach(function(b){
+      if (b.status === "confirmed" && !knownRefs[b.ref]) newOnes.push(b.ref);
+      knownRefs[b.ref] = true;
+    });
+    primedDate = dateStr;
+    if (isPrimed && newOnes.length){
+      newOnes.forEach(function(ref){
+        var tr = document.querySelector('tr[data-ref="' + ref.replace(/"/g,'') + '"]');
+        if (tr) tr.classList.add("flash");
+      });
+      playChime();
+    }
+
+    wireRowButtons();
+
+  } catch(e){
+    if (String(e.message) === "auth"){
+      /* session expired — back to login */
+      staffToken = null;
+      try { sessionStorage.removeItem("staff_token"); } catch(err){}
+      $("adminTools").style.display = "none";
+      $("loginBox").style.display = "block";
+      showMsg("loginMsg","warn","Your session expired — please sign in again.");
+    }
+  }
+}
+
+/* ---------- card guarantee helpers (staff) ---------- */
+function statusLabel(s){
+  return s === "awaiting_guarantee" ? "awaiting card" :
+         s === "no_show" ? "no-show" : s;
+}
+function statusClass(s){
+  return (s === "confirmed") ? "confirmed" :
+         (s === "cancelled") ? "cancelled" : "confirmed";
+}
+function cardCell(b){
+  if (b.card_guarantee_status === "secured" && b.card_last4){
+    var brand = b.card_brand ? (b.card_brand.charAt(0).toUpperCase()+b.card_brand.slice(1)) : "Card";
+    return '<span style="color:var(--ok);font-weight:600">' + esc(brand) + " ••" + esc(b.card_last4) +
+           ' · Secured</span>';
+  }
+  if (b.card_guarantee_required && b.card_guarantee_status === "awaiting")
+    return '<span style="color:var(--warn)">awaiting card</span>';
+  if (b.card_guarantee_status === "failed")
+    return '<span style="color:var(--err)">card failed</span>';
+  return '<span style="color:var(--soft)">—</span>';
+}
+function money(cents){ return "$" + (cents/100).toFixed(2); }
+function actionCell(b){
+  var out = "";
+  if (b.status === "confirmed"){
+    out += '<button class="btn btn-danger" data-cancel="' + esc(b.ref) + '">Cancel</button> ';
+    out += '<button class="btn btn-soft" style="padding:8px 12px;font-size:13px" data-noshow="' + esc(b.ref) + '">No-show</button>';
+  } else if (b.status === "no_show"){
+    if (b.card_guarantee_status === "secured" && !b.no_show_charged_at){
+      out += '<button class="btn btn-danger" data-charge="' + esc(b.ref) + '">Charge ' + money(b.no_show_fee_cents||0) + '</button>';
+    } else if (b.no_show_charged_at){
+      out += '<span style="color:var(--ok);font-size:12px">fee charged ✓</span>';
+    } else {
+      out += '<span style="color:var(--soft);font-size:12px">no card</span>';
+    }
+  } else {
+    out += '<button class="btn btn-danger" data-delete="' + esc(b.ref) + '">Delete</button>';
+  }
+  return out;
+}
+
+/* two-step confirm, then call the protected edge function */
+async function chargeNoShow(ref){
+  var b = (lastRows || []).filter(function(x){ return x.ref === ref; })[0];
+  if (!b) return;
+  var fee = money(b.no_show_fee_cents||0);
+  var first = confirm("Charge a no-show fee?\n\nGuest: " + b.name + "\nBooking: " + b.ref +
+                      "\nParty size: " + b.guests + "\nCard: " + (b.card_brand||"card") + " ••" + (b.card_last4||"") +
+                      "\nFee: " + fee + "\n\nContinue?");
+  if (!first) return;
+  var second = confirm("Please confirm again.\n\nThis will charge " + fee + " to the guest's saved card now. This cannot be undone here.");
+  if (!second) return;
+
+  try {
+    var res = await fetch(functionsBase() + "/charge-no-show", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "apikey": CONFIG.supabaseAnonKey,
+                 "Authorization": "Bearer " + staffToken },
+      body: JSON.stringify({ booking_id: b.id })
+    }).then(function(r){ return r.json(); });
+    if (res && res.ok){
+      alert("Charged " + money(res.charged_cents) + " — status: " + res.status);
+    } else {
+      alert("Not charged: " + (res && res.error ? res.error : "unknown error"));
+    }
+  } catch(e){
+    alert("Couldn't reach the charge service. Please try again.");
+  }
+  renderAdmin();
+}
+
+function wireRowButtons(){
+    Array.prototype.forEach.call(document.querySelectorAll("[data-noshow]"), function(btn){
+      btn.addEventListener("click", async function(){
+        if (!confirm("Mark this booking as a No-show? This does not charge anything yet.")) return;
+        await sbStaff("bookings?ref=eq." + encodeURIComponent(btn.getAttribute("data-noshow")), {
+          method: "PATCH", body: JSON.stringify({ status: "no_show" })
+        });
+        renderAdmin();
+      });
+    });
+    Array.prototype.forEach.call(document.querySelectorAll("[data-charge]"), function(btn){
+      btn.addEventListener("click", function(){ chargeNoShow(btn.getAttribute("data-charge")); });
+    });
+    Array.prototype.forEach.call(document.querySelectorAll("[data-cancel]"), function(btn){
+      btn.addEventListener("click", async function(){
+        if (!confirm("Cancel this booking? Its seats will be freed.")) return;
+        await sbStaff("bookings?ref=eq." + encodeURIComponent(btn.getAttribute("data-cancel")), {
+          method: "PATCH", body: JSON.stringify({ status: "cancelled" })
+        });
+        renderAdmin();
+      });
+    });
+    Array.prototype.forEach.call(document.querySelectorAll("[data-delete]"), function(btn){
+      btn.addEventListener("click", async function(){
+        if (!confirm("Delete this booking record permanently?")) return;
+        await sbStaff("bookings?ref=eq." + encodeURIComponent(btn.getAttribute("data-delete")), { method: "DELETE" });
+        renderAdmin();
+      });
+    });
+}
+
+/* ============================================================
+   CRM — guest history panel
+   ============================================================ */
+var crmLoaded = false;
+function showTab(which){
+  var onGuests = (which === "guests");
+  document.getElementById("tabBookings").style.display = onGuests ? "none" : "block";
+  document.getElementById("tabGuests").style.display = onGuests ? "block" : "none";
+  document.getElementById("tabBookingsBtn").classList.toggle("on", !onGuests);
+  document.getElementById("tabGuestsBtn").classList.toggle("on", onGuests);
+  if (onGuests && !crmLoaded){ crmLoaded = true; renderCrm(); }
+}
+document.getElementById("tabBookingsBtn").addEventListener("click", function(){ showTab("bookings"); });
+document.getElementById("tabGuestsBtn").addEventListener("click", function(){ showTab("guests"); });
+document.getElementById("crmRefreshBtn").addEventListener("click", renderCrm);
+var crmSearchTimer=null;
+document.getElementById("crmSearch").addEventListener("input", function(){
+  clearTimeout(crmSearchTimer); crmSearchTimer = setTimeout(renderCrm, 300);
+});
+
+function guestFlag(g){
+  if (g.no_show_count > 0) return '<span class="g-flag risk">' + g.no_show_count + ' no-show' + (g.no_show_count>1?'s':'') + '</span>';
+  if (g.total_bookings >= 3) return '<span class="g-flag vip">regular</span>';
+  if (g.total_bookings <= 1) return '<span class="g-flag new">new</span>';
+  return '';
+}
+
+async function renderCrm(){
+  if (!staffToken) return;
+  var q = document.getElementById("crmSearch").value.trim();
+  try {
+    var rows = await sbRpcAuth("list_guests", { p_search: q, p_limit: 200 });
+    rows = rows || [];
+
+    /* summary cards */
+    var totalGuests = rows.length;
+    var regulars = rows.filter(function(g){ return g.total_bookings >= 3; }).length;
+    var risky = rows.filter(function(g){ return g.no_show_count > 0; }).length;
+    document.getElementById("crmStats").innerHTML =
+      '<div class="cap-card"><b>' + totalGuests + '</b><span>guests on file</span></div>' +
+      '<div class="cap-card"><b>' + regulars + '</b><span>regulars (3+ visits)</span></div>' +
+      '<div class="cap-card"><b>' + risky + '</b><span>with no-shows</span></div>';
+    document.getElementById("crmCount").textContent = totalGuests + (q ? " matching" : " total");
+
+    var html = "";
+    rows.forEach(function(g){
+      html += "<tr>" +
+        '<td><span class="g-name">' + esc(g.name || "—") + "</span>" + guestFlag(g) + "</td>" +
+        '<td class="g-sub">' + esc(g.email || "") + (g.phone ? "<br>" + esc(g.phone) : "") + "</td>" +
+        "<td>" + (g.total_bookings||0) + "</td>" +
+        "<td>" + (g.total_guests||0) + "</td>" +
+        "<td>" + (g.no_show_count ? '<b style="color:var(--err)">' + g.no_show_count + "</b>" : "0") + "</td>" +
+        "<td>" + (g.last_visit || '<span style="color:var(--soft)">—</span>') + "</td>" +
+        '<td><button class="btn btn-soft" style="padding:7px 12px;font-size:12px" data-guest="' + esc(g.email) + '">View</button></td>' +
+        "</tr>";
+    });
+    document.getElementById("crmRows").innerHTML = html;
+    document.getElementById("crmEmpty").style.display = rows.length ? "none" : "block";
+
+    /* tapping a guest opens their profile card inline */
+    Array.prototype.forEach.call(document.querySelectorAll("[data-guest]"), function(btn){
+      btn.addEventListener("click", function(){
+        openGuestProfile(btn.getAttribute("data-guest"));
+      });
+    });
+  } catch(e){
+    document.getElementById("crmEmpty").style.display = "block";
+    document.getElementById("crmEmpty").textContent = "Couldn't load guests — make sure the CRM SQL has been run.";
+  }
+}
+
+/* ---------- open a guest profile card inline ---------- */
+async function openGuestProfile(email){
+  var panel = document.getElementById("guestProfile");
+  panel.style.display = "block";
+  panel.innerHTML = '<div class="gp-card"><span style="color:var(--soft);font-size:13px">Loading…</span></div>';
+  panel.scrollIntoView({ behavior:"smooth", block:"start" });
+  try {
+    /* guest record + their full booking history in parallel */
+    var guestRows = await sbRpcAuth("list_guests", { p_search: email, p_limit: 5 });
+    var g = (guestRows || []).filter(function(x){ return (x.email||"").toLowerCase() === email.toLowerCase(); })[0]
+            || (guestRows || [])[0] || { email: email };
+    var hist = await sbStaff("bookings?email=eq." + encodeURIComponent(email) +
+                             "&select=booking_date,slot_label,arrival_time,guests,status,card_brand,card_last4" +
+                             "&order=booking_date.desc,created_at.desc&limit=40");
+    hist = hist || [];
+
+    var initials = (g.name || email).split(/\s+/).map(function(w){ return w.charAt(0); }).join("").slice(0,2).toUpperCase();
+    var flagBg = "#e8f4ec", flagFg = "#0f6e56", flagTxt = "new";
+    if (g.no_show_count > 0){ flagBg="#fae8ec"; flagFg="#a32d2d"; flagTxt=g.no_show_count+" no-show"+(g.no_show_count>1?"s":""); }
+    else if (g.total_bookings >= 3){ flagBg="#f6efd9"; flagFg="#a06a00"; flagTxt="regular"; }
+
+    var rows = "";
+    hist.forEach(function(b){
+      var card = (b.card_last4) ? (esc((b.card_brand||"card")) + " \u2022\u2022" + esc(b.card_last4)) : "\u2014";
+      rows += "<tr>" +
+        "<td>" + esc(b.booking_date) + " \u00b7 " + esc(b.arrival_time || b.slot_label) + "</td>" +
+        '<td style="text-align:center">' + b.guests + " guests</td>" +
+        '<td style="text-align:right;color:var(--soft)">' + card + "</td>" +
+        '<td style="text-align:right"><span class="status ' + statusClass(b.status) + '">' + statusLabel(b.status) + "</span></td>" +
+        "</tr>";
+    });
+    if (!rows) rows = '<tr><td style="color:var(--soft)">No bookings on record.</td></tr>';
+
+    panel.innerHTML =
+      '<div class="gp-card">' +
+        '<div class="gp-head">' +
+          '<div class="gp-avatar" style="background:' + flagBg + ';color:' + flagFg + '">' + esc(initials) + '</div>' +
+          '<div style="flex:1">' +
+            '<div class="gp-name">' + esc(g.name || "\u2014") +
+              '<span class="g-flag" style="background:' + flagBg + ';color:' + flagFg + '">' + esc(flagTxt) + '</span></div>' +
+            '<div class="gp-contact">' + esc(g.email || "") + (g.phone ? " \u00b7 " + esc(g.phone) : "") + '</div>' +
+          '</div>' +
+          '<button class="btn btn-soft" style="padding:8px 14px;font-size:12px" id="gpClose">Close</button>' +
+        '</div>' +
+        '<div class="gp-stats">' +
+          '<div><b>' + (g.total_bookings||0) + '</b><span>total visits</span></div>' +
+          '<div><b>' + (g.total_guests||0) + '</b><span>guests hosted</span></div>' +
+          '<div><b>' + (g.no_show_count||0) + '</b><span>no-shows</span></div>' +
+          '<div><b>' + (g.last_visit || "\u2014") + '</b><span>last visit</span></div>' +
+        '</div>' +
+        '<div class="gp-hist-title">Booking history</div>' +
+        '<table class="gp-hist"><tbody>' + rows + '</tbody></table>' +
+      '</div>';
+    document.getElementById("gpClose").addEventListener("click", function(){
+      panel.style.display = "none"; panel.innerHTML = "";
+    });
+  } catch(e){
+    panel.innerHTML = '<div class="gp-card"><span style="color:var(--err);font-size:13px">Couldn\'t load this guest. Try Refresh.</span></div>';
+  }
+}
+
+/* RPC helper that sends the staff token (list_guests is security invoker) */
+async function sbRpcAuth(fn, args){
+  var res = await fetch(SB + "/rest/v1/rpc/" + fn, {
+    method: "POST",
+    headers: { "apikey": CONFIG.supabaseAnonKey, "Authorization": "Bearer " + staffToken, "Content-Type": "application/json" },
+    body: JSON.stringify(args)
+  });
+  if (!res.ok) throw new Error("rpc " + fn + " " + res.status);
+  return res.json();
+}
+
+/* show one guest's whole booking history in the Bookings tab */
+var crmEmailFilter = null;
+async function filterBookingsByEmail(email){
+  crmEmailFilter = email;
+  try {
+    var list = await sbStaff("bookings?email=eq." + encodeURIComponent(email) +
+                             "&select=*&order=booking_date.desc,created_at.desc");
+    lastRows = list || [];
+    var rows = "";
+    lastRows.forEach(function(b){
+      rows += '<tr data-ref="' + esc(b.ref) + '">' +
+        "<td><b>" + esc(b.arrival_time || b.slot_label) + "</b><br><span class='g-sub'>" + esc(b.booking_date) + "</span></td>" +
+        "<td>" + esc(b.slot_label) + "</td>" +
+        "<td>" + esc(b.name) + "<br><small style='color:var(--soft)'>" + esc(b.ref) + "</small></td>" +
+        "<td>" + b.guests + "</td>" +
+        "<td>" + esc(b.phone) + "</td>" +
+        "<td>" + esc(b.email) + "</td>" +
+        "<td>" + (b.notes ? esc(b.notes) : "<span style='color:var(--soft)'>—</span>") + "</td>" +
+        "<td>" + cardCell(b) + "</td>" +
+        '<td><span class="status ' + statusClass(b.status) + '">' + statusLabel(b.status) + "</span></td>" +
+        "<td>" + actionCell(b) + "</td></tr>";
+    });
+    $("adRows").innerHTML = rows;
+    $("adEmpty").style.display = lastRows.length ? "none" : "block";
+    $("adEmpty").textContent = "No bookings for this guest.";
+    wireRowButtons();
+  } catch(e){}
+}
+
+/* capacity settings update */
+$("setSaveBtn").addEventListener("click", async function(){
+  var total  = parseInt($("setTotal").value, 10);
+  var online = parseInt($("setOnline").value, 10);
+  $("setMsg").textContent = "";
+  if (!(total > 0) || !(online >= 0) || online > total){
+    $("setMsg").style.color = "var(--err)";
+    $("setMsg").textContent = "Online seats must be between 0 and total capacity.";
+    return;
+  }
+  try {
+    await sbStaff("booking_settings?id=eq." + encodeURIComponent(settingsRowId), {
+      method: "PATCH",
+      body: JSON.stringify({ total_capacity: total, online_seats: online })
+    });
+    $("setMsg").style.color = "var(--ok)";
+    $("setMsg").textContent = "Saved ✓";
+    setTimeout(function(){ $("setMsg").textContent = ""; }, 2500);
+    renderAdmin();
+  } catch(e){
+    $("setMsg").style.color = "var(--err)";
+    $("setMsg").textContent = "Couldn't save — try again.";
+  }
+});
+
+/* CSV export of the selected day */
+$("adCsvBtn").addEventListener("click", function(){
+  var dateStr = $("adDate").value || todayStr();
+  var head = ["Date","Arrival","Sitting","Name","Guests","Phone","Email","Notes","Status","Reference","Created"];
+  var lines = [head.join(",")];
+  lastRows.forEach(function(b){
+    lines.push([
+      b.booking_date, csv(b.arrival_time || ""), b.slot_label, csv(b.name), b.guests, csv(b.phone),
+      csv(b.email), csv(b.notes || ""), b.status, b.ref, b.created_at
+    ].join(","));
+  });
+  function csv(v){ return '"' + String(v).replace(/"/g, '""') + '"'; }
+  var blob = new Blob([lines.join("\n")], { type: "text/csv" });
+  var a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "bookings-" + dateStr + ".csv";
+  document.body.appendChild(a); a.click();
+  setTimeout(function(){ URL.revokeObjectURL(a.href); a.remove(); }, 800);
+});
+</script>
+</body>
+</html>
