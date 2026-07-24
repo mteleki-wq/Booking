@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Add a restaurant — WebEscapade</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700;900&family=Sora:wght@300;400;600;700&family=Space+Mono:wght@400;700&display=swap');
+
+:root{
+  --bg:#0b0916;
+  --panel:#15122b;
+  --panel-2:#1b1736;
+  --ink:#eef1fb;
+  --muted:#9aa3c7;
+  --line:rgba(154,163,199,.16);
+  --violet:#a855f7;
+  --blue:#4f7cff;
+  --teal:#39d0c3;
+  --grad:linear-gradient(100deg,#a855f7 0%,#4f7cff 55%,#39d0c3 100%);
+  --warn:#f0b352;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth;-webkit-text-size-adjust:100%}
+body{
+  background:var(--bg);color:var(--ink);
+  font-family:'Sora',-apple-system,BlinkMacSystemFont,sans-serif;
+  font-size:16px;line-height:1.65;-webkit-font-smoothing:antialiased;
+  padding:34px 20px 90px;
+}
+.wrap{max-width:760px;margin:0 auto}
+
+/* ---------- masthead ---------- */
+.eyebrow{
+  font-family:'Space Mono',monospace;font-size:11px;letter-spacing:.28em;
+  text-transform:uppercase;color:var(--teal);margin-bottom:12px;
+}
+h1{
+  font-family:'Unbounded',sans-serif;font-weight:900;font-size:clamp(30px,6vw,46px);
+  line-height:1.02;letter-spacing:-.02em;
+}
+h1 em{
+  font-style:normal;background:var(--grad);-webkit-background-clip:text;
+  background-clip:text;color:transparent;
+}
+.lede{color:var(--muted);margin-top:14px;max-width:52ch;font-size:15px}
+.masthead{margin-bottom:34px}
+
+/* ---------- the form ---------- */
+.card{
+  background:var(--panel);border:1px solid var(--line);border-radius:18px;
+  padding:24px 22px;margin-bottom:34px;
+}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:15px}
+.field{display:flex;flex-direction:column}
+.field.wide{grid-column:1 / -1}
+label{
+  font-family:'Space Mono',monospace;font-size:10.5px;letter-spacing:.15em;
+  text-transform:uppercase;color:var(--muted);margin-bottom:7px;
+}
+input{
+  width:100%;background:rgba(154,163,199,.08);border:1px solid var(--line);
+  border-radius:11px;padding:12px 14px;color:var(--ink);
+  font-family:'Sora',sans-serif;font-size:15.5px;-webkit-appearance:none;appearance:none;
+}
+input:focus{outline:none;border-color:var(--violet);box-shadow:0 0 0 3px rgba(168,85,247,.18)}
+input.mono{font-family:'Space Mono',monospace;font-size:14px}
+.help{font-size:12px;color:var(--muted);margin-top:6px;line-height:1.5}
+.help b{color:var(--ink);font-weight:600}
+.flag{display:none;margin-top:8px;font-size:12.5px;color:var(--warn)}
+.flag.show{display:block}
+
+/* ---------- steps: this is a real sequence, so it's numbered ---------- */
+.step{
+  display:grid;grid-template-columns:auto 1fr;gap:18px;
+  padding:26px 0;border-top:1px solid var(--line);
+}
+.num{
+  font-family:'Space Mono',monospace;font-size:12px;letter-spacing:.1em;
+  color:var(--muted);padding-top:5px;min-width:26px;
+}
+.step.done .num{color:var(--teal)}
+.step h2{
+  font-family:'Unbounded',sans-serif;font-weight:700;font-size:17.5px;
+  letter-spacing:-.01em;margin-bottom:7px;
+}
+.step p{color:var(--muted);font-size:14.5px;margin-bottom:14px}
+.step p b{color:var(--ink);font-weight:600}
+.step ol{margin:0 0 14px 17px;color:var(--muted);font-size:14.5px}
+.step ol li{margin-bottom:5px}
+.step ol b{color:var(--ink);font-weight:600}
+
+/* ---------- code blocks ---------- */
+.block{
+  position:relative;background:#0e0b1e;border:1px solid var(--line);
+  border-radius:13px;padding:15px 16px;margin-bottom:12px;
+}
+.block pre{
+  font-family:'Space Mono',monospace;font-size:12.5px;line-height:1.75;
+  color:#d8def5;white-space:pre-wrap;word-break:break-word;overflow-wrap:anywhere;
+  margin-right:70px;
+}
+.copy{
+  position:absolute;top:11px;right:11px;background:rgba(154,163,199,.12);
+  border:1px solid var(--line);border-radius:8px;padding:6px 11px;color:var(--ink);
+  font-family:'Sora',sans-serif;font-size:11.5px;font-weight:600;cursor:pointer;
+  -webkit-tap-highlight-color:transparent;transition:background .15s ease;
+}
+.copy:hover{background:rgba(154,163,199,.2)}
+.copy.ok{background:rgba(57,208,195,.18);border-color:rgba(57,208,195,.5);color:var(--teal)}
+
+/* one-line values you paste into the Bookings panel */
+.pair{
+  display:flex;align-items:center;gap:12px;background:#0e0b1e;
+  border:1px solid var(--line);border-radius:11px;padding:11px 12px;margin-bottom:9px;
+}
+.pair .k{
+  font-family:'Space Mono',monospace;font-size:10.5px;letter-spacing:.12em;
+  text-transform:uppercase;color:var(--muted);min-width:132px;flex:none;
+}
+.pair .v{
+  font-family:'Space Mono',monospace;font-size:12.5px;color:#d8def5;
+  flex:1;word-break:break-all;
+}
+.pair .copy{position:static;flex:none}
+
+.tick{
+  display:inline-flex;align-items:center;gap:9px;cursor:pointer;
+  font-size:13px;color:var(--muted);margin-top:4px;user-select:none;
+}
+.tick i{
+  width:17px;height:17px;border-radius:5px;border:1.5px solid var(--line);
+  display:grid;place-items:center;font-style:normal;font-size:11px;color:#0b0916;
+}
+.step.done .tick i{background:var(--teal);border-color:var(--teal)}
+.step.done .tick i::after{content:"✓"}
+.step.done .tick{color:var(--teal)}
+
+.note{
+  border-left:2px solid var(--violet);padding:2px 0 2px 15px;
+  color:var(--muted);font-size:13.5px;margin:14px 0 0;
+}
+.note b{color:var(--ink);font-weight:600}
+
+footer{
+  margin-top:44px;padding-top:22px;border-top:1px solid var(--line);
+  color:var(--muted);font-size:12.5px;
+}
+
+@media (max-width:600px){
+  .grid{grid-template-columns:1fr}
+  .step{grid-template-columns:1fr;gap:9px}
+  .num{padding-top:0}
+  .pair{flex-wrap:wrap}
+  .pair .k{min-width:0;width:100%}
+  .block pre{margin-right:0;margin-top:26px}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="masthead">
+    <div class="eyebrow">WebEscapade · Onboarding</div>
+    <h1>Add a <em>restaurant</em>.</h1>
+    <p class="lede">Type the restaurant's details once. Everything below rewrites itself —
+      the SQL to run in Supabase, and the exact values to paste into the site.</p>
+  </div>
+
+  <div class="card">
+    <div class="grid">
+      <div class="field wide">
+        <label for="fName">Restaurant name</label>
+        <input type="text" id="fName" placeholder="Sunset Grill" autocomplete="off">
+        <div class="help">Exactly as it should appear to their customers — accents and all.</div>
+      </div>
+
+      <div class="field">
+        <label for="fSlug">Venue code</label>
+        <input type="text" id="fSlug" class="mono" placeholder="sunset-grill" autocapitalize="off" autocorrect="off" spellcheck="false">
+        <div class="help">Made from the name. Change it if you'd rather.</div>
+        <div class="flag" id="slugFlag"></div>
+      </div>
+
+      <div class="field">
+        <label for="fRepo">Site repository</label>
+        <input type="text" id="fRepo" class="mono" placeholder="Sunset-grill" autocapitalize="off" autocorrect="off" spellcheck="false">
+        <div class="help">The new GitHub repo for their website.</div>
+      </div>
+
+      <div class="field wide">
+        <label for="fEmail">Manager's email</label>
+        <input type="email" id="fEmail" class="mono" placeholder="manager@sunsetgrill.com.au" autocapitalize="off" autocorrect="off" spellcheck="false">
+        <div class="help">The login they'll use to see their bookings.</div>
+        <div class="flag" id="emailFlag"></div>
+      </div>
+
+      <div class="field">
+        <label for="fOnline">Seats per sitting</label>
+        <input type="number" id="fOnline" value="40" min="1" inputmode="numeric">
+        <div class="help">How many they'll take online per sitting.</div>
+      </div>
+
+      <div class="field">
+        <label for="fTotal">Total capacity</label>
+        <input type="number" id="fTotal" value="60" min="1" inputmode="numeric">
+        <div class="help">The room's full size, walk-ins included.</div>
+        <div class="flag" id="capFlag"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 01 ============ -->
+  <section class="step" id="s1">
+    <div class="num">01</div>
+    <div>
+      <h2>Create the venue</h2>
+      <p>In Supabase → <b>SQL Editor</b> → New query. This makes the restaurant and its own
+        capacity settings, so their seats stay separate from every other client's.</p>
+      <div class="block">
+        <button class="copy">Copy</button>
+        <pre id="sql1">—</pre>
+      </div>
+      <label class="tick"><i></i> Done</label>
+    </div>
+  </section>
+
+  <!-- ============ 02 ============ -->
+  <section class="step" id="s2">
+    <div class="num">02</div>
+    <div>
+      <h2>Create their login</h2>
+      <p>In Supabase → <b>Authentication → Users → Add user</b>. Use the manager's email,
+        set a password, and tick the option to confirm it automatically.</p>
+      <p>Then run this to attach that login to their restaurant. From here, row level
+        security means they can only ever see their own bookings and guests.</p>
+      <div class="block">
+        <button class="copy">Copy</button>
+        <pre id="sql2">—</pre>
+      </div>
+      <p class="note"><b>If it says 0 rows,</b> the email doesn't match a user yet — check the
+        spelling against the Users list and run it again.</p>
+      <label class="tick"><i></i> Done</label>
+    </div>
+  </section>
+
+  <!-- ============ 03 ============ -->
+  <section class="step" id="s3">
+    <div class="num">03</div>
+    <div>
+      <h2>Check it landed</h2>
+      <p>One query to confirm the venue exists with the right seats, and the manager is linked.</p>
+      <div class="block">
+        <button class="copy">Copy</button>
+        <pre id="sql3">—</pre>
+      </div>
+      <label class="tick"><i></i> Done</label>
+    </div>
+  </section>
+
+  <!-- ============ 04 ============ -->
+  <section class="step" id="s4">
+    <div class="num">04</div>
+    <div>
+      <h2>Make their site</h2>
+      <ol>
+        <li>New GitHub repository named <b id="repoName">—</b></li>
+        <li>Tick <b>Add a README file</b> — this creates the <b>main</b> branch</li>
+        <li>Upload the site template</li>
+        <li>Settings → Pages → Deploy from a branch → <b>main</b> → <b>/ (root)</b></li>
+      </ol>
+      <p>Nothing else goes in this repo. The booking page and the staff screen are shared —
+        one copy serves every restaurant.</p>
+      <label class="tick"><i></i> Done</label>
+    </div>
+  </section>
+
+  <!-- ============ 05 ============ -->
+  <section class="step" id="s5">
+    <div class="num">05</div>
+    <div>
+      <h2>Connect the site</h2>
+      <p>Open their site with <b>?setup=1</b>, rebrand the text and logo, import their menu,
+        then open the <b>📅 Bookings</b> panel and paste these four values.</p>
+      <div class="pair"><span class="k">Venue code</span><span class="v" id="pVenue">—</span><button class="copy" data-from="pVenue">Copy</button></div>
+      <div class="pair"><span class="k">Booking page</span><span class="v" id="pBooking">—</span><button class="copy" data-from="pBooking">Copy</button></div>
+      <div class="pair"><span class="k">Project URL</span><span class="v" id="pUrl">—</span><button class="copy" data-from="pUrl">Copy</button></div>
+      <div class="pair"><span class="k">Anon key</span><span class="v" id="pKey">—</span><button class="copy" data-from="pKey">Copy</button></div>
+      <p>Then <b>Test connection</b> — it should recognise the venue code. Save booking
+        settings, then <b>🚀 Deploy</b>.</p>
+      <p class="note">The last three are the same for every restaurant. Only the venue code changes.</p>
+      <label class="tick"><i></i> Done</label>
+    </div>
+  </section>
+
+  <!-- ============ 06 ============ -->
+  <section class="step" id="s6">
+    <div class="num">06</div>
+    <div>
+      <h2>Hand it over</h2>
+      <p>Send the manager these two links and their password.</p>
+      <div class="pair"><span class="k">Their website</span><span class="v" id="pSite">—</span><button class="copy" data-from="pSite">Copy</button></div>
+      <div class="pair"><span class="k">Staff bookings</span><span class="v" id="pStaff">—</span><button class="copy" data-from="pStaff">Copy</button></div>
+      <p>On the staff page they scroll to <b>Staff sign in</b>. They'll see today's bookings,
+        can mark tables seated or cancelled, download the day as a spreadsheet, and search
+        their guest history.</p>
+      <label class="tick"><i></i> Done</label>
+    </div>
+  </section>
+
+  <footer>
+    Your standing values — GitHub username, booking page address, Supabase URL and anon key —
+    live in the SETTINGS block at the top of this file's script. Edit them once.
+  </footer>
+</div>
+
+<script>
+/* ============================================================
+   SETTINGS — edit these once, they're the same for every client
+   ============================================================ */
+var SETTINGS = {
+  githubUser:  "mteleki-wq",
+  bookingPage: "https://mteleki-wq.github.io/Booking/restaurant-booking-supabase-with-crm-3.html",
+  supabaseUrl: "https://tehxobdokbvqtwtgqzrh.supabase.co",
+  anonKey:     "PASTE-YOUR-ANON-PUBLIC-KEY-HERE"
+};
+
+(function(){
+"use strict";
+var $ = function(id){ return document.getElementById(id); };
+
+/* turn "Café Bojo's Grill" into "cafe-bojos-grill" */
+function toSlug(s){
+  return String(s || "")
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")   /* strip accents */
+    .toLowerCase()
+    .replace(/['’]/g, "")                                /* apostrophes vanish */
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .replace(/-{2,}/g, "-");
+}
+/* a name like O'Brien's must not break the SQL */
+function sqlStr(s){ return "'" + String(s == null ? "" : s).replace(/'/g, "''") + "'"; }
+function intOr(v, fallback){
+  var n = parseInt(v, 10);
+  return (isNaN(n) || n < 1) ? fallback : n;
+}
+
+var slugTouched = false, repoTouched = false;
+$("fSlug").addEventListener("input", function(){ slugTouched = true; render(); });
+$("fRepo").addEventListener("input", function(){ repoTouched = true; render(); });
+["fName","fEmail","fOnline","fTotal"].forEach(function(id){
+  $(id).addEventListener("input", render);
+});
+
+function render(){
+  var name = $("fName").value.trim();
+
+  /* slug and repo follow the name until you edit them yourself */
+  if(!slugTouched) $("fSlug").value = toSlug(name);
+  if(!repoTouched){
+    var s = toSlug(name);
+    $("fRepo").value = s ? s.charAt(0).toUpperCase() + s.slice(1) : "";
+  }
+
+  var slug   = toSlug($("fSlug").value) || "venue-code";
+  var repo   = $("fRepo").value.trim() || "Restaurant-repo";
+  var email  = $("fEmail").value.trim();
+  var online = intOr($("fOnline").value, 40);
+  var total  = intOr($("fTotal").value, 60);
+  var shown  = name || "Restaurant name";
+
+  /* warn, don't block */
+  var sf = $("slugFlag");
+  if($("fSlug").value && $("fSlug").value !== slug){
+    sf.className = "flag show";
+    sf.textContent = "Will be saved as " + slug + " — lowercase, no spaces.";
+  } else sf.className = "flag";
+
+  var ef = $("emailFlag");
+  if(email && email.indexOf("@") < 0){
+    ef.className = "flag show";
+    ef.textContent = "That doesn't look like an email address.";
+  } else ef.className = "flag";
+
+  var cf = $("capFlag");
+  if(total < online){
+    cf.className = "flag show";
+    cf.textContent = "Total capacity is below the seats offered online.";
+  } else cf.className = "flag";
+
+  /* ---- 01 ---- */
+  $("sql1").textContent =
+    "-- " + shown + "\n" +
+    "select public.add_venue(\n" +
+    "  " + sqlStr(slug) + ",\n" +
+    "  " + sqlStr(name || "Restaurant name") + ",\n" +
+    "  " + online + ",   -- seats offered online, per sitting\n" +
+    "  " + total  + "    -- total capacity\n" +
+    ");";
+
+  /* ---- 02 ---- */
+  $("sql2").textContent =
+    "-- link " + (email || "their-manager@example.com") + " to " + shown + "\n" +
+    "insert into venue_staff (venue_id, user_id)\n" +
+    "select v.id, u.id\n" +
+    "  from venues v, auth.users u\n" +
+    " where v.slug = " + sqlStr(slug) + "\n" +
+    "   and u.email = " + sqlStr(email || "their-manager@example.com") + ";";
+
+  /* ---- 03 ---- */
+  $("sql3").textContent =
+    "select v.slug, v.name, s.online_seats, s.total_capacity,\n" +
+    "       count(st.user_id) as staff_linked\n" +
+    "  from venues v\n" +
+    "  left join booking_settings s on s.venue_id = v.id\n" +
+    "  left join venue_staff st     on st.venue_id = v.id\n" +
+    " where v.slug = " + sqlStr(slug) + "\n" +
+    " group by v.slug, v.name, s.online_seats, s.total_capacity;";
+
+  /* ---- 04 / 05 / 06 ---- */
+  $("repoName").textContent = repo;
+  $("pVenue").textContent   = slug;
+  $("pBooking").textContent = SETTINGS.bookingPage;
+  $("pUrl").textContent     = SETTINGS.supabaseUrl;
+  $("pKey").textContent     = SETTINGS.anonKey;
+  $("pSite").textContent    = "https://" + SETTINGS.githubUser + ".github.io/" + repo + "/";
+  $("pStaff").textContent   = SETTINGS.bookingPage;
+}
+
+/* ---- copy ---- */
+document.addEventListener("click", function(e){
+  var btn = e.target.closest(".copy");
+  if(!btn) return;
+  var src = btn.getAttribute("data-from");
+  var text = src ? $(src).textContent : btn.parentNode.querySelector("pre").textContent;
+  function flash(){
+    var was = btn.textContent;
+    btn.textContent = "Copied"; btn.classList.add("ok");
+    setTimeout(function(){ btn.textContent = was; btn.classList.remove("ok"); }, 1400);
+  }
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(text).then(flash, fallback);
+  } else fallback();
+  function fallback(){
+    var ta = document.createElement("textarea");
+    ta.value = text; ta.style.position = "fixed"; ta.style.opacity = "0";
+    document.body.appendChild(ta); ta.select();
+    try { document.execCommand("copy"); flash(); } catch(err){}
+    ta.remove();
+  }
+});
+
+/* ---- tick steps off as you go ---- */
+document.addEventListener("click", function(e){
+  var t = e.target.closest(".tick");
+  if(!t) return;
+  t.closest(".step").classList.toggle("done");
+});
+
+render();
+})();
+</script>
+</body>
+</html>
