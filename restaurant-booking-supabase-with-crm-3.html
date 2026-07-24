@@ -868,7 +868,7 @@ $("confirmBtn").addEventListener("click", async function(){
           body: JSON.stringify({ booking_id: result.booking_id })
         }).then(function(r){ return r.json(); });
         if (sess && sess.url){
-          window.location.href = sess.url;   // redirect to Stripe Checkout (setup mode)
+          (window.top && window.top !== window.self ? window.top : window).location.href = sess.url;   // redirect to Stripe Checkout (setup mode)
           return;
         }
         showMsg("msg2","err","We couldn't open the secure card page. Please try again or call us on <b>" + CONFIG.contactPhone + "</b>.");
