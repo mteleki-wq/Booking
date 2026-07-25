@@ -1,0 +1,1163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hero Video Maker — WebEscapade</title>
+<!--
+  ============================================================
+  HERO VIDEO MAKER · for website hero sections
+  ============================================================
+  Drop 4–16 photos (+ optionally your logo) → get a punchy
+  vertical promo reel as a real video file. 1080×1920, 30fps,
+  rendered entirely on your device — nothing is uploaded.
+
+  · Logo sting: animates at the START, the END, or BOTH.
+  · 12 vibes in three groups:
+      Core        — Hype / Swipe / Funky / Smooth
+      TikTok      — Strobe Pop / Spin Zoom / Shake It / Glitch
+      Mix & speed — Auto Mix / Speed Ramp / Hyper / Beat Montage
+  · Speed Ramp & Beat Montage use variable per-image timing
+    (fast-fast-slow) like trending CapCut edits.
+  · Silent video — add music in CapCut after.
+  ============================================================
+-->
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=Space+Mono:wght@400;700&display=swap');
+  :root{
+    --bg:#070b18;--card:#0d1226;--ink:#eef1fb;--muted:#9aa3c7;
+    --line:rgba(154,163,199,.18);
+    --grad:linear-gradient(100deg,#a855f7 0%,#4f7cff 55%,#39d0c3 100%);
+    --teal:#39d0c3;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{background:var(--bg);color:var(--ink);font-family:'Sora',-apple-system,sans-serif;line-height:1.6;-webkit-font-smoothing:antialiased;min-height:100vh}
+  .wrap{max-width:760px;margin:0 auto;padding:44px 22px 90px}
+  .eyebrow{font-family:'Space Mono',monospace;font-size:11px;letter-spacing:.26em;text-transform:uppercase;color:var(--teal);display:flex;align-items:center;gap:12px;margin-bottom:16px}
+  .eyebrow::before{content:"";width:34px;height:1px;background:var(--grad)}
+  h1{font-size:clamp(26px,5vw,36px);font-weight:800;letter-spacing:-.01em;line-height:1.15}
+  h1 .g{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .lede{color:var(--muted);font-size:15px;margin-top:12px;max-width:56ch}
+
+  .card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:24px;margin-top:22px}
+  .card h2{font-size:15px;font-weight:800;margin-bottom:12px;display:flex;align-items:center;gap:10px}
+  .card h2 .opt{font-family:'Space Mono',monospace;font-size:9px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);border:1px solid var(--line);border-radius:100px;padding:2px 9px;margin-left:2px}
+  .num{width:24px;height:24px;border-radius:50%;background:var(--grad);color:#fff;font-size:12px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0}
+
+  .dropzone{
+    border:2px dashed rgba(79,124,255,.45);border-radius:14px;padding:30px 20px;text-align:center;
+    cursor:pointer;transition:border-color .25s,background .25s;
+  }
+  .dropzone.over{border-color:var(--teal);background:rgba(57,208,195,.06)}
+  .dropzone p{color:var(--muted);font-size:14px}
+  .dropzone b{color:var(--ink)}
+  input[type="file"]{display:none}
+
+  .thumbs{display:grid;grid-template-columns:repeat(auto-fill,minmax(84px,1fr));gap:10px;margin-top:14px}
+  .thumb{position:relative;aspect-ratio:9/16;border-radius:10px;overflow:hidden;border:1px solid var(--line)}
+  .thumb img{width:100%;height:100%;object-fit:cover;display:block}
+  .thumb .rm{
+    position:absolute;top:5px;right:5px;width:22px;height:22px;border-radius:50%;border:none;
+    background:rgba(0,0,0,.65);color:#fff;font-size:12px;cursor:pointer;line-height:1;
+  }
+  .thumb .vid{
+    position:absolute;top:5px;left:5px;font-size:11px;
+    background:rgba(0,0,0,.65);border-radius:100px;padding:1px 6px;
+  }
+  .thumb .ord{
+    position:absolute;bottom:5px;left:5px;font-family:'Space Mono',monospace;font-size:10px;
+    background:rgba(0,0,0,.65);color:var(--teal);border-radius:100px;padding:1px 7px;
+  }
+  .count{font-family:'Space Mono',monospace;font-size:10.5px;letter-spacing:.12em;color:var(--teal);margin-top:10px;display:none}
+  .count.show{display:block}
+
+  #logoPrev{
+    display:none;margin:14px auto 0;max-width:130px;max-height:130px;border-radius:12px;
+    background:
+      linear-gradient(45deg,rgba(255,255,255,.06) 25%,transparent 25%,transparent 75%,rgba(255,255,255,.06) 75%),
+      linear-gradient(45deg,rgba(255,255,255,.06) 25%,transparent 25%,transparent 75%,rgba(255,255,255,.06) 75%);
+    background-size:18px 18px;background-position:0 0,9px 9px;
+    padding:8px;border:1px solid var(--line);
+  }
+  #logoPrev.show{display:block}
+  #introRow{display:none;margin-top:14px}
+  #introRow.show{display:block}
+  #introRow .set{margin-top:12px}
+  #introRow .set:first-child{margin-top:0}
+
+  .settings{display:flex;gap:20px;flex-wrap:wrap;align-items:flex-end;margin-top:4px}
+  .set{flex:1;min-width:170px}
+  .set label{display:block;font-family:'Space Mono',monospace;font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);margin-bottom:8px}
+  .set output{color:var(--teal);font-weight:700}
+  input[type="range"]{width:100%;accent-color:#4f7cff}
+  select{
+    width:100%;background:#0a0f22;border:1px solid var(--line);border-radius:10px;color:var(--ink);
+    font-family:'Sora',sans-serif;font-size:14px;padding:11px 12px;outline:none;
+  }
+  .total{
+    margin-top:14px;font-family:'Space Mono',monospace;font-size:11px;letter-spacing:.14em;
+    text-transform:uppercase;color:var(--muted);
+  }
+  .total b{color:var(--teal)}
+
+  .go{
+    width:100%;margin-top:18px;background:var(--grad);border:none;border-radius:100px;color:#fff;
+    font-family:'Sora',sans-serif;font-weight:800;font-size:16px;padding:17px;cursor:pointer;
+    -webkit-tap-highlight-color:transparent;
+  }
+  .go:disabled{opacity:.4;cursor:not-allowed}
+  .go:active{transform:scale(.99)}
+
+  #stage{display:none;text-align:center}
+  #stage.show{display:block}
+  #cv{width:auto;max-width:min(100%,320px);margin:0 auto;border-radius:12px;background:#000;display:block}
+  .bar{height:6px;background:rgba(255,255,255,.1);border-radius:100px;overflow:hidden;margin-top:14px}
+  .bar i{display:block;height:100%;width:0%;background:var(--grad);transition:width .2s}
+  .stage-note{font-family:'Space Mono',monospace;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-top:10px}
+
+  #result{display:none}
+  #result.show{display:block}
+  #result video{width:auto;max-width:min(100%,320px);margin:0 auto;border-radius:12px;background:#000;display:block;max-height:70vh}
+  #outFrame{width:100%;height:460px;border:1px solid var(--line);border-radius:12px;background:#000;display:none}
+  #outFrame.show{display:block}
+  .preview-hint{display:none;font-family:'Space Mono',monospace;font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--teal);margin-top:10px}
+  .preview-hint.show{display:block}
+  .dl{
+    display:inline-block;margin-top:16px;background:var(--grad);color:#fff;text-decoration:none;
+    font-weight:800;font-size:15px;border-radius:100px;padding:15px 34px;
+  }
+  .again{
+    display:inline-block;margin-top:16px;margin-left:10px;color:var(--muted);text-decoration:none;
+    font-weight:700;font-size:14px;border:1px solid var(--line);border-radius:100px;padding:14px 26px;cursor:pointer;
+    background:none;font-family:'Sora',sans-serif;
+  }
+  .after{margin-top:16px;font-size:13px;color:var(--muted);text-align:left}
+  .after code{background:rgba(79,124,255,.12);color:#bcd0ff;padding:2px 7px;border-radius:5px;font-family:'Space Mono',monospace;font-size:12px}
+  .warn{margin-top:14px;font-size:12.5px;color:#ffd479;display:none}
+  .warn.show{display:block}
+
+  .styles{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+  @media(max-width:560px){.styles{grid-template-columns:1fr}}
+  .style-btn{
+    text-align:left;background:#0a0f22;border:1.5px solid var(--line);border-radius:14px;
+    padding:16px;cursor:pointer;font-family:'Sora',sans-serif;color:var(--ink);
+    transition:border-color .2s,transform .2s;-webkit-tap-highlight-color:transparent;
+  }
+  .style-btn:hover{transform:translateY(-2px)}
+  .style-btn.on{border-color:transparent;background:linear-gradient(#0a0f22,#0a0f22) padding-box,var(--grad) border-box}
+  .style-btn .s-ico{font-size:20px}
+  .style-btn b{display:block;font-size:14px;margin:8px 0 4px}
+  .style-btn small{color:var(--muted);font-size:11.5px;line-height:1.5;display:block}
+  .style-btn .s-tag{
+    display:inline-block;margin-top:8px;font-family:'Space Mono',monospace;font-size:9px;
+    letter-spacing:.14em;text-transform:uppercase;color:var(--teal);
+    border:1px solid rgba(57,208,195,.35);border-radius:100px;padding:3px 9px;
+  }
+  .sec-split{
+    font-family:'Space Mono',monospace;font-size:9.5px;letter-spacing:.2em;text-transform:uppercase;
+    color:var(--muted);grid-column:1/-1;margin:6px 2px -2px;display:flex;align-items:center;gap:10px;
+  }
+  .sec-split::after{content:"";flex:1;height:1px;background:var(--line)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="eyebrow">Hero video maker · for your website</div>
+  <h1>Drop your photos &amp; clips.<br><span class="g">Get an elegant hero video for your website.</span></h1>
+  <p class="lede">Slow cinematic motion, an optional animated logo sting, a text-readability dim so your headline stays legible, and a seamless loop — exported as a real video file ready for your site's <b>Set hero video</b> button. Photos and mp4 clips mixed, rendered entirely on your device.</p>
+
+  <!-- 1. images -->
+  <div class="card">
+    <h2><span class="num">1</span> Add your images &amp; video clips <span class="opt">4–16 · photos + mp4</span></h2>
+    <div class="dropzone" id="imgDrop">
+      <p><b>Tap to choose photos or videos</b><br>or drag them here · they play in the order you add them<br>photos run for the slider seconds · video clips play up to 8s of themselves · 3–6 items loop beautifully</p>
+    </div>
+    <input type="file" id="imgIn" accept="image/*,video/mp4,video/quicktime,video/webm" multiple>
+    <div class="thumbs" id="thumbs"></div>
+    <div class="count" id="imgCount"></div>
+  </div>
+
+  <!-- 2. logo -->
+  <div class="card">
+    <h2><span class="num">2</span> Add your logo <span class="opt">optional</span></h2>
+    <div class="dropzone" id="logoDrop">
+      <p><b>Tap to add a logo sting</b><br>animate it at the start, the end, or both · PNG with transparency works best</p>
+    </div>
+    <input type="file" id="logoIn" accept="image/*">
+    <img id="logoPrev" alt="Logo preview">
+    <div id="introRow">
+      <div class="set">
+        <label>Logo animation style</label>
+        <select id="introIn">
+          <option value="quads" selected>🌸 Quad Bloom — four quarters drift together</option>
+          <option value="shards">🧩 Shard Assemble — pieces fly in and lock</option>
+          <option value="orbit">💫 Orbit Seal — gold rings draw around it</option>
+          <option value="luxe">🌟 Luxe Reveal — cinematic iris + glow</option>
+        </select>
+      </div>
+      <div class="set">
+        <label>Logo placement</label>
+        <select id="placeIn">
+          <option value="start" selected>▶️ Start — sting first, then images</option>
+          <option value="end">⏹️ End — images first, logo outro to close</option>
+          <option value="both">🔁 Both — sting at the start, outro at the end</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3. vibe -->
+  <div class="card">
+    <h2><span class="num">3</span> Pick the vibe</h2>
+    <div class="styles" id="vibeGrid">
+      <button class="style-btn on" data-vibe="drift" type="button">
+        <span class="s-ico">🌊</span><b>Cinematic Drift</b>
+        <small>Slow Ken Burns drifts with soft crossfades — the classic hero look. Calm, premium, never distracting.</small>
+        <span class="s-tag">Classic · recommended</span>
+      </button>
+      <button class="style-btn" data-vibe="slide" type="button">
+        <span class="s-ico">🎞️</span><b>Slow Slide</b>
+        <small>Each shot glides in from the side with gentle parallax, like a slow editorial pan across your story.</small>
+        <span class="s-tag">Editorial · flowing</span>
+      </button>
+      <button class="style-btn" data-vibe="dissolve" type="button">
+        <span class="s-ico">🌫️</span><b>Dissolve</b>
+        <small>Long dreamy dissolves and slow centred zooms. The softest of the six — beautiful under large headlines.</small>
+        <span class="s-tag">Soft · dreamy</span>
+      </button>
+      <button class="style-btn" data-vibe="goldsweep" type="button">
+        <span class="s-ico">✨</span><b>Gold Shimmer</b>
+        <small>Cinematic drift with a faint band of golden light sweeping across each shot — your brand's gold, in motion.</small>
+        <span class="s-tag">Branded · luxe</span>
+      </button>
+      <button class="style-btn" data-vibe="letterbox" type="button">
+        <span class="s-ico">🖤</span><b>Letterbox</b>
+        <small>Cinema bars top and bottom with slow drift between them. Instantly filmic — made for moody venue footage.</small>
+        <span class="s-tag">Filmic · moody</span>
+      </button>
+      <button class="style-btn" data-vibe="pulse" type="button">
+        <span class="s-ico">💓</span><b>Soft Pulse</b>
+        <small>A gentle breathing zoom with quicker dissolves — the most modern of the set, still calm enough for a hero.</small>
+        <span class="s-tag">Modern · alive</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- 4. settings -->
+  <div class="card">
+    <h2><span class="num">4</span> Tune the pace</h2>
+    <div class="settings">
+      <div class="set">
+        <label>Output</label>
+        <select id="outIn">
+          <option value="video" selected>🎬 Video file — for "Set hero video"</option>
+          <option value="scroll">🖱️ Scroll-driven hero — HTML, like Apple</option>
+        </select>
+        <div class="warn" id="scrollVidNote">In the scroll version, video clips appear as elegant stills (scrubbing real video on scroll is unreliable on iPad).</div>
+      </div>
+      <div class="set">
+        <label>Seconds per image — <output id="perOut">4</output>s</label>
+        <input type="range" id="perIn" min="2.5" max="6" step="0.5" value="4">
+      </div>
+      <div class="set" id="setScroll" style="display:none">
+        <label>Scroll length — <output id="scrOut">4</output>× screen</label>
+        <input type="range" id="scrIn" min="2" max="8" step="0.5" value="4">
+      </div>
+      <div class="set" id="setLoop">
+        <label>Ending</label>
+        <select id="loopIn">
+          <option value="loop" selected>🔁 Seamless loop — best for heroes</option>
+          <option value="once">⏹️ Play once, fade out</option>
+        </select>
+      </div>
+      <div class="set">
+        <label>Text-readability dim</label>
+        <select id="ovlIn">
+          <option value="veil" selected>Soft dark veil — headline anywhere</option>
+          <option value="left">Left gradient — headline on the left</option>
+          <option value="bottom">Bottom gradient — headline low</option>
+          <option value="none">None — clean footage</option>
+        </select>
+      </div>
+      <div class="set" id="setFmt">
+        <label>Format</label>
+        <select id="fmtIn">
+          <option value="1920x1080" selected>Landscape 16:9 — standard website hero</option>
+          <option value="1920x820">Cinematic 21:9 — ultra-wide banner</option>
+          <option value="1080x1920">Vertical 9:16 — mobile hero</option>
+        </select>
+      </div>
+      <div class="set">
+        <label>Background</label>
+        <select id="bgIn">
+          <option value="#000000" selected>Black — cinematic</option>
+          <option value="#101014">Soft charcoal</option>
+          <option value="#12100b">Espresso — warm dark</option>
+          <option value="#0b1524">Deep navy</option>
+        </select>
+      </div>
+    </div>
+    <div class="total" id="totalOut">Total length: —</div>
+    <button class="go" id="goBtn" disabled>Generate hero video</button>
+    <div class="warn" id="recWarn">Your browser doesn't support in-page video recording. Try Safari 16+ on iPad/iPhone or any recent Chrome.</div>
+  </div>
+
+  <!-- 5. rendering -->
+  <div class="card" id="stage">
+    <h2 style="justify-content:center"><span class="num">5</span> Filming…</h2>
+    <canvas id="cv"></canvas>
+    <div class="bar"><i id="barFill"></i></div>
+    <div class="stage-note">Rendering in real time — keep this tab open</div>
+  </div>
+
+  <!-- 5. result -->
+  <div class="card" id="result">
+    <h2><span class="num">✓</span> Your hero video</h2>
+    <video id="outVid" controls playsinline muted loop></video>
+    <iframe id="outFrame" title="Scroll hero preview"></iframe>
+    <div class="preview-hint" id="frameHint">Scroll inside the preview — the animation follows your scrolling</div>
+    <a class="dl" id="dlBtn" download="hero.mp4" href="#">Download video</a>
+    <button class="again" id="againBtn" type="button">Change the vibe</button>
+    <div class="after">
+      <b>Next:</b> download it, open your site editor and tap <code>Set hero video</code>, then upload this file —
+      it loops seamlessly behind your headline. Keep heroes between roughly 10 and 25 seconds so the file stays light
+      and the loop feels alive. The soft dim is baked in so your headline text stays readable on top.
+    </div>
+  </div>
+</div>
+
+<script>
+/* ============================================================
+   HERO ENGINE — self-contained so it can be serialised
+   (via toString) straight into the scroll-driven HTML export.
+   The same renderers power the video AND the scroll hero.
+   ============================================================ */
+function HeroEngine(){
+  function clamp01(v){ return v < 0 ? 0 : (v > 1 ? 1 : v); }
+  function easeOutCubic(p){ return 1 - Math.pow(1 - p, 3); }
+  function easeInOut(p){ return p < 0.5 ? 2*p*p : 1 - Math.pow(-2*p + 2, 2)/2; }
+  function easeOutBack(p){ var c = 1.5; return 1 + (c + 1) * Math.pow(p - 1, 3) + c * Math.pow(p - 1, 2); }
+  function easeInCubic(p){ return p*p*p; }
+  function mulberry(seed){
+    return function(){
+      seed |= 0; seed = (seed + 0x6D2B79F5) | 0;
+      var t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  function setup(items, logoImg, cw, ch, o){
+    var S = {
+      cw: cw, ch: ch, items: items,
+      vibe: o.vibe, per: o.per, bg: o.bg, overlay: o.overlay,
+      place: logoImg ? o.place : 'none', introStyle: o.introStyle, loop: !!o.loop,
+      INTRO: 2.4, INTRO_EXIT: 0.45, OUTRO: 2.3, TAIL: 0.8, LOOPFADE: 0.6
+    };
+    S.TRBASE = { drift: 0.9, slide: 1.1, dissolve: 1.4, goldsweep: 0.9, letterbox: 1.0, pulse: 0.7 }[S.vibe] || 0.9;
+    S.N = items.length;
+    S.segDur = []; S.segStart = [];
+    var acc = 0;
+    for (var i = 0; i < S.N; i++){
+      var d = items[i].kind === 'video' ? items[i].dur : S.per;
+      S.segDur.push(d); S.segStart.push(acc); acc += d;
+    }
+    S.segTotal = acc;
+    S.imagesStart = (S.place === 'start' || S.place === 'both') ? S.INTRO - S.INTRO_EXIT : 0;
+    var tail;
+    if (S.place === 'end' || S.place === 'both') tail = S.loop ? S.OUTRO + S.LOOPFADE : S.OUTRO;
+    else tail = S.loop ? 0 : S.TAIL;
+    S.total = S.imagesStart + S.segTotal + tail;
+    S.loopSeam = S.loop && S.place === 'none';
+
+    S.P = items.map(function(it, i){
+      var rand = mulberry(9160 + i * 77);
+      var sc = Math.max(cw / it.w, ch / it.h);
+      return {
+        dw: it.w * sc, dh: it.h * sc,
+        zin: i % 2 === 0,
+        panX: (rand() - 0.5) * cw * 0.08,
+        panY: (rand() - 0.5) * ch * 0.05,
+        dir: i % 2 === 0 ? 1 : -1
+      };
+    });
+
+    S.L = null;
+    if (logoImg){
+      var maxSide = Math.min(cw, ch) * 0.55;
+      var ls = maxSide / Math.max(logoImg.width, logoImg.height);
+      var L = { lw: Math.round(logoImg.width * ls), lh: Math.round(logoImg.height * ls) };
+      L.lx = Math.round((cw - L.lw) / 2); L.ly = Math.round((ch - L.lh) / 2);
+      L.cv = document.createElement('canvas');
+      L.cv.width = L.lw; L.cv.height = L.lh;
+      L.cv.getContext('2d').drawImage(logoImg, 0, 0, L.lw, L.lh);
+      L.shine = document.createElement('canvas');
+      L.shine.width = L.lw; L.shine.height = L.lh;
+      L.shineCtx = L.shine.getContext('2d');
+      L.build = 1.35;
+      var lrand = mulberry(20260718);
+      L.shards = []; L.quads = [];
+      if (S.introStyle === 'shards'){
+        var G = 6, cwc = L.lw / G, chc = L.lh / G;
+        for (var gy = 0; gy < G; gy++) for (var gx = 0; gx < G; gx++){
+          var cxr = (gx + 0.5)/G - 0.5, cyr = (gy + 0.5)/G - 0.5;
+          var ang = Math.atan2(cyr, cxr) + (lrand() - 0.5) * 1.2;
+          var fly = Math.min(cw, ch) * (0.5 + lrand() * 0.5);
+          L.shards.push({
+            sx: gx*cwc, sy: gy*chc, sw: cwc, sh: chc,
+            dx: Math.cos(ang)*fly, dy: Math.sin(ang)*fly,
+            rot: (lrand() - 0.5) * 2.2,
+            delay: (Math.sqrt(cxr*cxr + cyr*cyr)/0.707) * 0.4 + lrand() * 0.1
+          });
+        }
+      }
+      if (S.introStyle === 'quads'){
+        var off = Math.min(cw, ch) * 0.16;
+        [[0,0,-off,-off,-0.10],[1,0,off,-off,0.10],[0,1,-off,off,0.08],[1,1,off,off,-0.08]]
+          .forEach(function(dd, qi){ L.quads.push({ gx:dd[0], gy:dd[1], dx:dd[2], dy:dd[3], rot:dd[4], delay: qi*0.06 }); });
+      }
+      S.L = L;
+    }
+    return S;
+  }
+
+  function trFor(S, segLen){ return Math.min(S.TRBASE, segLen * 0.5); }
+
+  function segState(S, ts){
+    var i = 0;
+    while (i < S.N - 1 && ts >= S.segStart[i + 1]) i++;
+    var local = ts - S.segStart[i];
+    var segLen = S.segDur[i];
+    var TRc = trFor(S, segLen);
+    var canExit = (i < S.N - 1) || S.loopSeam;
+    var q = (canExit && local > segLen - TRc) ? clamp01((local - (segLen - TRc)) / TRc) : 0;
+    return { i: i, local: local, segLen: segLen, TRc: TRc, q: q, nx: (i + 1) % S.N };
+  }
+
+  function drawCover(ctx, S, j, z, px, py, alpha){
+    var p = S.P[j];
+    ctx.save();
+    ctx.translate(S.cw/2, S.ch/2);
+    ctx.scale(z, z);
+    ctx.globalAlpha = alpha;
+    var it = S.items[j];
+    if (it.kind !== 'video' || it.el.readyState >= 2){
+      ctx.drawImage(it.el, -p.dw/2 + px, -p.dh/2 + py, p.dw, p.dh);
+    }
+    ctx.restore();
+    ctx.globalAlpha = 1;
+  }
+
+  function drawMotion(ctx, S, j, mt, alpha){
+    var p = S.P[j];
+    var life = clamp01(mt / (S.segDur[j] + S.TRBASE));
+    if (S.vibe === 'dissolve'){
+      drawCover(ctx, S, j, 1.03 + 0.09 * life, 0, 0, alpha);
+    } else if (S.vibe === 'pulse'){
+      var breathe = 0.015 * Math.sin(mt * 2.2);
+      drawCover(ctx, S, j, 1.05 + 0.05 * life + breathe, p.panX * life * 0.5, 0, alpha);
+    } else if (S.vibe === 'slide'){
+      drawCover(ctx, S, j, 1.05 + 0.04 * life, p.dir * S.cw * 0.02 * life, 0, alpha);
+    } else {
+      var z = p.zin ? 1.02 + 0.10 * life : 1.12 - 0.10 * life;
+      drawCover(ctx, S, j, z, p.panX * life, p.panY * life, alpha);
+    }
+  }
+
+  function drawImages(ctx, S, ts){
+    var G = segState(S, ts);
+    var i = G.i, local = G.local, TRc = G.TRc, q = G.q, nx = G.nx;
+    var mtCur = local + trFor(S, S.segDur[(i - 1 + S.N) % S.N]);
+
+    if (S.vibe === 'slide'){
+      if (q > 0){
+        ctx.save();
+        ctx.translate(-S.P[nx].dir * S.cw * 0.22 * easeInOut(q), 0);
+        drawMotion(ctx, S, i, mtCur, 1);
+        ctx.restore();
+        ctx.save();
+        ctx.translate(S.P[nx].dir * S.cw * (1 - easeInOut(q)), 0);
+        drawMotion(ctx, S, nx, q * TRc, 1);
+        ctx.restore();
+      } else {
+        drawMotion(ctx, S, i, mtCur, 1);
+      }
+    } else {
+      drawMotion(ctx, S, i, mtCur, 1);
+      if (q > 0) drawMotion(ctx, S, nx, q * TRc, easeInOut(q));
+    }
+
+    if (S.vibe === 'goldsweep'){
+      var sp = clamp01((local - 0.6) / 1.8);
+      if (sp > 0 && sp < 1){
+        var x0 = (sp * 1.5 - 0.25) * S.cw;
+        var g = ctx.createLinearGradient(x0, 0, x0 + S.cw * 0.28, S.ch * 0.6);
+        g.addColorStop(0, 'rgba(232,198,116,0)');
+        g.addColorStop(0.5, 'rgba(232,198,116,.16)');
+        g.addColorStop(1, 'rgba(232,198,116,0)');
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.fillStyle = g;
+        ctx.fillRect(0, 0, S.cw, S.ch);
+        ctx.globalCompositeOperation = 'source-over';
+      }
+    }
+  }
+
+  function logoShine(ctx, S, prog, strength){
+    if (prog <= 0 || prog >= 1) return;
+    var L = S.L;
+    var sx = L.shineCtx;
+    sx.clearRect(0, 0, L.lw, L.lh);
+    var x0 = (-0.35 + prog * 1.7) * L.lw;
+    var g = sx.createLinearGradient(x0, 0, x0 + L.lw * 0.34, L.lh * 0.85);
+    g.addColorStop(0, 'rgba(255,244,204,0)');
+    g.addColorStop(0.5, 'rgba(255,246,214,' + (0.85 * strength) + ')');
+    g.addColorStop(1, 'rgba(255,244,204,0)');
+    sx.fillStyle = g;
+    sx.fillRect(0, 0, L.lw, L.lh);
+    sx.globalCompositeOperation = 'destination-in';
+    sx.drawImage(L.cv, 0, 0);
+    sx.globalCompositeOperation = 'source-over';
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.drawImage(L.shine, L.lx, L.ly);
+    ctx.globalCompositeOperation = 'source-over';
+  }
+
+  function drawLogoSting(ctx, S, lt, mode){
+    var L = S.L;
+    var exitP = mode === 'in' ? clamp01((lt - (S.INTRO - S.INTRO_EXIT)) / S.INTRO_EXIT) : 0;
+    var backA = mode === 'in' ? (1 - exitP) : easeOutCubic(clamp01(lt / 0.55));
+    if (backA > 0){
+      ctx.globalAlpha = backA;
+      ctx.fillStyle = S.bg;
+      ctx.fillRect(0, 0, S.cw, S.ch);
+      var amb = ctx.createRadialGradient(S.cw/2, S.ch/2, 0, S.cw/2, S.ch/2, Math.min(S.cw, S.ch) * 0.62);
+      amb.addColorStop(0, 'rgba(216,178,88,.10)');
+      amb.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = amb;
+      ctx.fillRect(0, 0, S.cw, S.ch);
+      ctx.globalAlpha = 1;
+    }
+    var p = clamp01(lt / L.build);
+    var ez = 1 + easeInCubic(exitP) * 0.6;
+    var ea = 1 - easeInCubic(exitP);
+    if (ea <= 0) return;
+    ctx.save();
+    ctx.translate(S.cw/2, S.ch/2);
+    ctx.scale(ez, ez);
+    ctx.translate(-S.cw/2, -S.ch/2);
+    ctx.globalAlpha = ea;
+
+    if (p >= 1){
+      ctx.save();
+      ctx.translate(S.cw/2, S.ch/2);
+      ctx.shadowColor = 'rgba(224,184,90,.55)';
+      ctx.shadowBlur = 24;
+      ctx.drawImage(L.cv, -L.lw/2, -L.lh/2);
+      ctx.restore();
+    } else if (S.introStyle === 'shards'){
+      ctx.save();
+      ctx.translate(L.lx, L.ly);
+      for (var i = 0; i < L.shards.length; i++){
+        var sh = L.shards[i];
+        var e = easeOutBack(clamp01((p - sh.delay) / 0.48));
+        if (e <= 0) continue;
+        ctx.save();
+        ctx.translate(sh.sx + sh.sw/2 + sh.dx*(1-e), sh.sy + sh.sh/2 + sh.dy*(1-e));
+        ctx.rotate(sh.rot * (1-e));
+        ctx.globalAlpha = ea * clamp01(e * 2.2);
+        ctx.drawImage(L.cv, sh.sx, sh.sy, sh.sw, sh.sh, -sh.sw/2, -sh.sh/2, sh.sw, sh.sh);
+        ctx.restore();
+      }
+      ctx.restore();
+    } else if (S.introStyle === 'quads'){
+      var qw = L.lw/2, qh = L.lh/2;
+      for (var q = 0; q < L.quads.length; q++){
+        var Q = L.quads[q];
+        var e2 = easeOutCubic(clamp01((p - Q.delay) / 0.7));
+        if (e2 <= 0) continue;
+        var sx0 = Q.gx*qw, sy0 = Q.gy*qh;
+        ctx.save();
+        ctx.translate(L.lx + sx0 + qw/2 + Q.dx*(1-e2), L.ly + sy0 + qh/2 + Q.dy*(1-e2));
+        ctx.rotate(Q.rot * (1-e2));
+        ctx.globalAlpha = ea * clamp01(e2 * 1.8);
+        ctx.drawImage(L.cv, sx0, sy0, qw, qh, -qw/2, -qh/2, qw, qh);
+        ctx.restore();
+      }
+    } else if (S.introStyle === 'orbit'){
+      var e3 = easeOutCubic(p);
+      ctx.save();
+      ctx.translate(S.cw/2, S.ch/2);
+      ctx.scale(1.08 - 0.08*e3, 1.08 - 0.08*e3);
+      ctx.globalAlpha = ea * clamp01(p * 2.2);
+      ctx.shadowColor = 'rgba(224,184,90,.45)';
+      ctx.shadowBlur = 20;
+      ctx.drawImage(L.cv, -L.lw/2, -L.lh/2);
+      ctx.restore();
+      var ra = p < 0.82 ? 1 : (1 - clamp01((p - 0.82)/0.18));
+      if (ra > 0){
+        var R1 = Math.min(Math.min(S.cw,S.ch)*0.44, Math.max(L.lw,L.lh)*0.60);
+        ctx.lineWidth = Math.max(1.5, L.lw*0.005);
+        ctx.globalAlpha = ea;
+        ctx.strokeStyle = 'rgba(224,184,90,' + (0.9*ra) + ')';
+        ctx.beginPath();
+        ctx.arc(S.cw/2, S.ch/2, R1, -Math.PI/2, -Math.PI/2 + Math.PI*2*easeOutCubic(clamp01(p/0.72)));
+        ctx.stroke();
+        ctx.strokeStyle = 'rgba(224,184,90,' + (0.55*ra) + ')';
+        ctx.beginPath();
+        ctx.arc(S.cw/2, S.ch/2, R1*1.055, Math.PI/2, Math.PI/2 - Math.PI*2*easeOutCubic(clamp01((p-0.1)/0.72)), true);
+        ctx.stroke();
+      }
+    } else {
+      var iris = easeOutCubic(clamp01(p / 0.55));
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(S.cw/2, S.ch/2, Math.max(1, iris * Math.max(L.lw, L.lh) * 0.78), 0, Math.PI*2);
+      ctx.clip();
+      ctx.translate(S.cw/2, S.ch/2);
+      var zi = 1.12 - 0.12 * easeOutCubic(p);
+      ctx.scale(zi, zi);
+      ctx.globalAlpha = ea * clamp01(p * 3);
+      ctx.shadowColor = 'rgba(224,184,90,.5)';
+      ctx.shadowBlur = 26;
+      ctx.drawImage(L.cv, -L.lw/2, -L.lh/2);
+      ctx.restore();
+      ctx.globalAlpha = ea;
+    }
+    logoShine(ctx, S, (lt - (L.build + 0.1)) / 0.7, 1);
+    ctx.restore();
+    ctx.globalAlpha = 1;
+  }
+
+  function drawOverlayDim(ctx, S){
+    if (S.overlay === 'none') return;
+    if (S.overlay === 'veil'){
+      ctx.fillStyle = 'rgba(0,0,0,.28)';
+      ctx.fillRect(0, 0, S.cw, S.ch);
+    } else if (S.overlay === 'left'){
+      var g = ctx.createLinearGradient(0, 0, S.cw * 0.62, 0);
+      g.addColorStop(0, 'rgba(0,0,0,.58)');
+      g.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, S.cw, S.ch);
+    } else if (S.overlay === 'bottom'){
+      var g2 = ctx.createLinearGradient(0, S.ch, 0, S.ch * 0.45);
+      g2.addColorStop(0, 'rgba(0,0,0,.6)');
+      g2.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = g2;
+      ctx.fillRect(0, 0, S.cw, S.ch);
+    }
+  }
+
+  function drawScene(ctx, S, t){
+    ctx.fillStyle = S.bg;
+    ctx.fillRect(0, 0, S.cw, S.ch);
+
+    var ts = t - S.imagesStart;
+    if (ts > 0) drawImages(ctx, S, Math.min(ts, S.segTotal - 0.001));
+
+    drawOverlayDim(ctx, S);
+
+    var g = ctx.createRadialGradient(S.cw/2, S.ch/2, Math.min(S.cw,S.ch)*0.55, S.cw/2, S.ch/2, Math.max(S.cw,S.ch)*0.78);
+    g.addColorStop(0, 'rgba(0,0,0,0)');
+    g.addColorStop(1, 'rgba(0,0,0,.22)');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, S.cw, S.ch);
+
+    if (S.L && (S.place === 'start' || S.place === 'both') && t < S.INTRO) drawLogoSting(ctx, S, t, 'in');
+
+    var outroStart = S.imagesStart + S.segTotal - 0.45;
+    if (S.L && (S.place === 'end' || S.place === 'both') && t > outroStart) drawLogoSting(ctx, S, t - outroStart, 'out');
+
+    if (S.vibe === 'letterbox'){
+      var barH = Math.round(S.ch * 0.11);
+      ctx.fillStyle = '#050505';
+      ctx.fillRect(0, 0, S.cw, barH);
+      ctx.fillRect(0, S.ch - barH, S.cw, barH);
+    }
+
+    if (S.loop){
+      if (S.place !== 'none' && t > S.total - S.LOOPFADE){
+        ctx.globalAlpha = clamp01((t - (S.total - S.LOOPFADE)) / S.LOOPFADE);
+        ctx.fillStyle = S.bg;
+        ctx.fillRect(0, 0, S.cw, S.ch);
+        ctx.globalAlpha = 1;
+      }
+      if (S.place === 'end' && t < 0.4){
+        ctx.globalAlpha = 1 - clamp01(t / 0.4);
+        ctx.fillStyle = S.bg;
+        ctx.fillRect(0, 0, S.cw, S.ch);
+        ctx.globalAlpha = 1;
+      }
+    } else if (t > S.total - 0.5){
+      ctx.globalAlpha = clamp01((t - (S.total - 0.5)) / 0.5);
+      ctx.fillStyle = S.bg;
+      ctx.fillRect(0, 0, S.cw, S.ch);
+      ctx.globalAlpha = 1;
+    }
+  }
+
+  /* map scroll progress (0..1) to timeline seconds with explicit budgeting:
+     the logo sting gets a fixed ~16% of the scroll and the images share the
+     rest evenly — so every image is always reached, whatever the seconds
+     slider says, and the last shot is fully on screen at release. */
+  function scrollMap(S, p){
+    p = clamp01(p);
+    var sIn = (S.place === 'start' || S.place === 'both') ? 0.16 : 0;
+    var sOut = (S.place === 'end' || S.place === 'both') ? 0.14 : 0;
+    if (sIn && p < sIn) return (p / sIn) * S.imagesStart;
+    var outroStart = S.imagesStart + S.segTotal - 0.45;
+    if (sOut && p > 1 - sOut){
+      var qo = (p - (1 - sOut)) / sOut;
+      return outroStart + qo * ((S.total - 0.55) - outroStart);
+    }
+    var span = Math.max(0.0001, 1 - sIn - sOut);
+    var q = (p - sIn) / span;
+    var imgEnd = sOut ? outroStart : (S.imagesStart + S.segTotal - 0.5);
+    return S.imagesStart + q * (imgEnd - S.imagesStart);
+  }
+
+  return { setup: setup, segState: segState, drawScene: drawScene, scrollMap: scrollMap };
+}
+var E = HeroEngine();
+
+/* ============================================================ intake */
+var imgs = [];
+var logoImg = null;
+
+function wireDrop(zone, input, multi, onFile){
+  zone.addEventListener('click', function(){ input.click(); });
+  zone.addEventListener('dragover', function(e){ e.preventDefault(); zone.classList.add('over'); });
+  zone.addEventListener('dragleave', function(){ zone.classList.remove('over'); });
+  zone.addEventListener('drop', function(e){
+    e.preventDefault(); zone.classList.remove('over');
+    var fs = e.dataTransfer.files;
+    for (var i = 0; i < fs.length; i++){ onFile(fs[i]); if (!multi) break; }
+  });
+  input.addEventListener('change', function(){
+    for (var i = 0; i < input.files.length; i++){ onFile(input.files[i]); if (!multi) break; }
+    input.value = '';
+  });
+}
+
+wireDrop(document.getElementById('imgDrop'), document.getElementById('imgIn'), true, function(f){
+  if (imgs.length >= 16) return;
+  if (f.type.match(/^image\//)){
+    var reader = new FileReader();
+    reader.onload = function(){
+      var img = new Image();
+      img.onload = function(){
+        imgs.push({ el: img, kind: 'image', w: img.width, h: img.height, dur: 0, thumb: img.src, name: f.name });
+        renderThumbs();
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(f);
+  } else if (f.type.match(/^video\//)){
+    var v = document.createElement('video');
+    v.muted = true;
+    v.playsInline = true;
+    v.setAttribute('playsinline', '');
+    v.preload = 'auto';
+    v.src = URL.createObjectURL(f);
+    v.addEventListener('loadedmetadata', function(){
+      var seekTo = Math.min(0.1, (v.duration || 1) / 2);
+      var done = false;
+      v.addEventListener('seeked', function(){
+        if (done) return;
+        done = true;
+        var tc = document.createElement('canvas');
+        tc.width = 180;
+        tc.height = Math.max(1, Math.round(180 * v.videoHeight / Math.max(1, v.videoWidth)));
+        try { tc.getContext('2d').drawImage(v, 0, 0, tc.width, tc.height); } catch(err){}
+        /* also grab a full-quality poster frame — used as the still in the scroll export */
+        var pw = Math.min(1600, v.videoWidth || 1280);
+        var pc = document.createElement('canvas');
+        pc.width = pw;
+        pc.height = Math.max(1, Math.round(pw * v.videoHeight / Math.max(1, v.videoWidth)));
+        try { pc.getContext('2d').drawImage(v, 0, 0, pc.width, pc.height); } catch(err){}
+        imgs.push({
+          el: v, kind: 'video', w: v.videoWidth || 1280, h: v.videoHeight || 720,
+          dur: Math.min(Math.max(v.duration || 2, 1), 8),
+          thumb: tc.toDataURL('image/jpeg', 0.7),
+          poster: pc.toDataURL('image/jpeg', 0.82),
+          name: f.name
+        });
+        v.currentTime = 0;
+        renderThumbs();
+      });
+      v.currentTime = seekTo;
+    });
+    v.load();
+  }
+});
+
+wireDrop(document.getElementById('logoDrop'), document.getElementById('logoIn'), false, function(f){
+  if (!f.type.match(/^image\//)) return;
+  var reader = new FileReader();
+  reader.onload = function(){
+    var img = new Image();
+    img.onload = function(){
+      logoImg = img;
+      var prev = document.getElementById('logoPrev');
+      prev.src = img.src;
+      prev.classList.add('show');
+      document.getElementById('introRow').classList.add('show');
+      document.getElementById('logoDrop').querySelector('p').innerHTML = '<b>Logo loaded</b> — tap to replace it';
+      refreshMeta();
+    };
+    img.src = reader.result;
+  };
+  reader.readAsDataURL(f);
+});
+
+function renderThumbs(){
+  var box = document.getElementById('thumbs');
+  box.innerHTML = '';
+  imgs.forEach(function(it, i){
+    var d = document.createElement('div');
+    d.className = 'thumb';
+    var im = document.createElement('img');
+    im.src = it.thumb;
+    var rm = document.createElement('button');
+    rm.className = 'rm'; rm.textContent = '✕'; rm.type = 'button';
+    rm.addEventListener('click', function(e){ e.stopPropagation(); imgs.splice(i,1); renderThumbs(); });
+    var ord = document.createElement('span');
+    ord.className = 'ord'; ord.textContent = (i+1);
+    d.appendChild(im); d.appendChild(rm); d.appendChild(ord);
+    if (it.kind === 'video'){
+      var vb = document.createElement('span');
+      vb.className = 'vid';
+      vb.textContent = '🎥 ' + it.dur.toFixed(0) + 's';
+      d.appendChild(vb);
+    }
+    box.appendChild(d);
+  });
+  var c = document.getElementById('imgCount');
+  var nv = imgs.filter(function(x){ return x.kind === 'video'; }).length;
+  c.textContent = imgs.length + ' item' + (imgs.length === 1 ? '' : 's') +
+    (nv ? ' (' + nv + ' video clip' + (nv === 1 ? '' : 's') + ', each plays up to 8s)' : '') + ' · tap ✕ to remove';
+  c.classList.toggle('show', imgs.length > 0);
+  refreshMeta();
+}
+
+/* ============================================================ settings */
+var vibe = 'drift';
+document.querySelectorAll('.style-btn').forEach(function(b){
+  b.addEventListener('click', function(){
+    document.querySelectorAll('.style-btn').forEach(function(x){ x.classList.remove('on'); });
+    b.classList.add('on');
+    vibe = b.dataset.vibe;
+    refreshMeta();
+  });
+});
+document.getElementById('perIn').addEventListener('input', function(){
+  document.getElementById('perOut').textContent = this.value;
+  refreshMeta();
+});
+document.getElementById('scrIn').addEventListener('input', function(){
+  document.getElementById('scrOut').textContent = this.value;
+});
+document.getElementById('placeIn').addEventListener('change', refreshMeta);
+document.getElementById('loopIn').addEventListener('change', refreshMeta);
+
+var outSel = 'video';
+document.getElementById('outIn').addEventListener('change', function(){
+  outSel = this.value;
+  var isVideo = outSel === 'video';
+  document.getElementById('setLoop').style.display = isVideo ? 'block' : 'none';
+  document.getElementById('setFmt').style.display = isVideo ? 'block' : 'none';
+  document.getElementById('setScroll').style.display = isVideo ? 'none' : 'block';
+  document.getElementById('goBtn').textContent = isVideo ? 'Generate hero video' : 'Generate scroll hero (HTML)';
+  refreshMeta();
+});
+
+function heroOpts(){
+  return {
+    vibe: vibe,
+    per: parseFloat(document.getElementById('perIn').value),
+    bg: document.getElementById('bgIn').value,
+    overlay: document.getElementById('ovlIn').value,
+    place: document.getElementById('placeIn').value,
+    introStyle: document.getElementById('introIn').value,
+    loop: document.getElementById('loopIn').value === 'loop'
+  };
+}
+function itemsFor(){
+  return imgs.map(function(it){ return { el: it.el, kind: it.kind, w: it.w, h: it.h, dur: it.dur }; });
+}
+function refreshMeta(){
+  var msg;
+  var nv = imgs.filter(function(x){ return x.kind === 'video'; }).length;
+  document.getElementById('scrollVidNote').classList.toggle('show', outSel === 'scroll' && nv > 0);
+  if (imgs.length < 2){
+    msg = 'Add at least 2 images to generate';
+  } else if (outSel === 'scroll'){
+    msg = 'Scroll story: <b>' + imgs.length + ' shots</b> across <b>' +
+      document.getElementById('scrIn').value + '× screen</b> of scrolling' + (logoImg ? ' · incl. logo' : '');
+  } else {
+    var o = heroOpts();
+    var S = E.setup(itemsFor(), logoImg, 1920, 1080, o);
+    msg = 'Total length: <b>' + S.total.toFixed(1) + 's</b>' + (S.loop ? ' · loops seamlessly' : '') + (logoImg ? ' · incl. logo' : '');
+    if (S.total > 28) msg += ' · <span style="color:#ffd479">long for a hero — 10–25s keeps the file light</span>';
+  }
+  document.getElementById('totalOut').innerHTML = msg;
+  document.getElementById('goBtn').disabled = imgs.length < 2;
+}
+refreshMeta();
+
+/* ============================================================ recording support */
+function pickMime(){
+  var options = ['video/mp4;codecs=avc1.42E01E','video/mp4','video/webm;codecs=vp9','video/webm'];
+  for (var i = 0; i < options.length; i++){
+    if (window.MediaRecorder && MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(options[i])) return options[i];
+  }
+  return null;
+}
+if (!pickMime()) document.getElementById('recWarn').classList.add('show');
+
+/* ============================================================ scroll export */
+function shrinkImage(el, w, h, maxW, asPng){
+  var sc = Math.min(1, maxW / w);
+  var c = document.createElement('canvas');
+  c.width = Math.max(1, Math.round(w * sc));
+  c.height = Math.max(1, Math.round(h * sc));
+  c.getContext('2d').drawImage(el, 0, 0, c.width, c.height);
+  return { url: asPng ? c.toDataURL('image/png') : c.toDataURL('image/jpeg', 0.82), w: c.width, h: c.height };
+}
+
+function buildScrollExport(scrollVh){
+  var o = heroOpts();
+  /* media: photos re-encoded smaller; video clips become their poster stills */
+  var media = imgs.map(function(it){
+    if (it.kind === 'video') return { url: it.poster, w: Math.min(1600, it.w), h: Math.round(Math.min(1600, it.w) * it.h / it.w) };
+    var sm = shrinkImage(it.el, it.w, it.h, 1600, false);
+    return { url: sm.url, w: sm.w, h: sm.h };
+  });
+  var logoData = null;
+  if (logoImg){
+    var lg = shrinkImage(logoImg, logoImg.width, logoImg.height, 800, true);
+    logoData = { url: lg.url, w: lg.w, h: lg.h };
+  }
+  var cfg = {
+    vibe: o.vibe, per: o.per, bg: o.bg, overlay: o.overlay,
+    place: logoImg ? o.place : 'none', introStyle: o.introStyle
+  };
+  var src = HeroEngine.toString();
+
+  return '<!DOCTYPE html>\n<html lang="en">\n<head>\n<meta charset="UTF-8">\n' +
+  '<meta name="viewport" content="width=device-width, initial-scale=1.0">\n' +
+  '<title>Scroll hero — ' + cfg.vibe + '</title>\n<style>\n' +
+  '*{margin:0;padding:0;box-sizing:border-box}\n' +
+  'body{background:' + cfg.bg + '}\n' +
+  '/* ===== HERO-SCROLL START — copy from here into your page ===== */\n' +
+  '.hs-rig{height:' + Math.round((scrollVh + 1) * 100) + 'vh;position:relative}\n' +
+  '.hs-stage{position:sticky;top:0;height:100vh;overflow:hidden}\n' +
+  '.hs-stage canvas{width:100%;height:100%;display:block}\n' +
+  '.hs-copy{position:absolute;left:6vw;bottom:14vh;color:#fff;font-family:-apple-system,Sora,sans-serif;max-width:34ch;pointer-events:none}\n' +
+  '.hs-copy .hs-kicker{font-size:12px;letter-spacing:.24em;text-transform:uppercase;opacity:.75;margin-bottom:12px}\n' +
+  '.hs-copy h1{font-size:clamp(34px,6vw,72px);font-weight:800;line-height:1.05;letter-spacing:-.01em}\n' +
+  '/* ===== HERO-SCROLL END ===== */\n' +
+  '.hs-after{min-height:100vh;display:flex;align-items:center;justify-content:center;' +
+  'color:#7a7f96;font-family:-apple-system,sans-serif;font-size:13px;letter-spacing:.12em;text-transform:uppercase;background:#0b0b12}\n' +
+  '</style>\n</head>\n<body>\n' +
+  '<!-- ===== HERO-SCROLL START — copy this whole block (plus the CSS above and script below) into your page ===== -->\n' +
+  '<div class="hs-rig" id="hsRig"><div class="hs-stage"><canvas id="hsCv"></canvas>' +
+  '<div class="hs-copy" id="hsCopy"><div class="hs-kicker">Replace this text</div><h1>Your headline lives here.</h1></div>' +
+  '</div></div>\n' +
+  '<!-- ===== HERO-SCROLL END ===== -->\n' +
+  '<section class="hs-after">Your page content continues here\u2026</section>\n' +
+  '<script>\n' +
+  'var E=(' + src + ')();\n' +
+  'var CFG=' + JSON.stringify(cfg) + ';\n' +
+  'var SCROLL=' + scrollVh + ';\n' +
+  'var MEDIA=' + JSON.stringify(media) + ';\n' +
+  'var LOGO=' + JSON.stringify(logoData) + ';\n' +
+  [
+  "var cv=document.getElementById('hsCv');",
+  "var ctx=cv.getContext('2d');",
+  "var S=null, items=[], logoEl=null, pending=MEDIA.length+(LOGO?1:0);",
+  "function ready(){",
+  "  if(--pending>0) return;",
+  "  sizing();",
+  "  var reduced=window.matchMedia('(prefers-reduced-motion: reduce)').matches;",
+  "  if(reduced){",
+  "    var t0=null;",
+  "    var pl=function(n){ if(t0===null)t0=n; var t=(n-t0)/1000;",
+  "      E.drawScene(ctx,S,Math.min(tMax(),t));",
+  "      if(t<tMax()) requestAnimationFrame(pl); };",
+  "    requestAnimationFrame(pl);",
+  "  }",
+  "}",
+  "MEDIA.forEach(function(m,i){",
+  "  var im=new Image();",
+  "  im.onload=function(){ items[i]={el:im,kind:'image',w:m.w,h:m.h,dur:0}; ready(); };",
+  "  im.src=m.url;",
+  "});",
+  "if(LOGO){",
+  "  logoEl=new Image();",
+  "  logoEl.onload=ready;",
+  "  logoEl.src=LOGO.url;",
+  "}",
+  "function tMax(){ return S ? S.total-0.55 : 0; }",
+  "var copyEl=document.getElementById('hsCopy');",
+  "function sizing(){",
+  "  var d=Math.min(2,window.devicePixelRatio||1);",
+  "  cv.width=Math.round(window.innerWidth*d);",
+  "  cv.height=Math.round(window.innerHeight*d);",
+  "  S=E.setup(items,logoEl,cv.width,cv.height,{vibe:CFG.vibe,per:CFG.per,bg:CFG.bg,overlay:CFG.overlay,place:CFG.place,introStyle:CFG.introStyle,loop:false});",
+  "  draw();",
+  "}",
+  "function pNow(){",
+  "  var vh=window.innerHeight;",
+  "  return Math.max(0,Math.min(1,(window.scrollY||window.pageYOffset)/(vh*SCROLL)));",
+  "}",
+  "var tick=false;",
+  "function draw(){",
+  "  if(!S){ tick=false; return; }",
+  "  var p=pNow();",
+  "  E.drawScene(ctx,S,E.scrollMap(S,p));",
+  "  if(copyEl){ var o=1-Math.max(0,Math.min(1,(p-0.05)/0.25)); copyEl.style.opacity=o; }",
+  "  tick=false;",
+  "}",
+  "window.addEventListener('scroll',function(){ if(!tick){tick=true;requestAnimationFrame(draw);} },{passive:true});",
+  "window.addEventListener('resize',function(){ if(items.length===MEDIA.length) sizing(); });"
+  ].join('\n') +
+  '\n<\/script>\n</body>\n</html>';
+}
+
+/* ============================================================ generate */
+document.getElementById('goBtn').addEventListener('click', function(){
+  if (imgs.length < 2) return;
+
+  var result = document.getElementById('result');
+  var vid = document.getElementById('outVid');
+  var frame = document.getElementById('outFrame');
+  var hint = document.getElementById('frameHint');
+  var dl = document.getElementById('dlBtn');
+  var after = document.querySelector('#result .after');
+
+  /* --- scroll hero path --- */
+  if (outSel === 'scroll'){
+    var scrollVh = parseFloat(document.getElementById('scrIn').value);
+    var html = buildScrollExport(scrollVh);
+    var hblob = new Blob([html], { type: 'text/html' });
+    var hurl = URL.createObjectURL(hblob);
+    vid.style.display = 'none';
+    frame.classList.add('show');
+    frame.src = hurl;
+    hint.classList.add('show');
+    dl.href = hurl;
+    dl.setAttribute('download', 'scroll-hero-' + vibe + '.html');
+    dl.textContent = 'Download scroll hero (HTML)';
+    if (after) after.innerHTML =
+      '<b>Next:</b> everything is embedded in this one file — open it and scroll to feel it. The sample headline ' +
+      'sits over the canvas; replace it with your own. To wire it into your restaurant template, copy the CSS and ' +
+      'markup between the <code>HERO-SCROLL START/END</code> markers plus the script — we\u2019ll do that together next.';
+    document.getElementById('stage').classList.remove('show');
+    result.classList.add('show');
+    result.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    return;
+  }
+
+  /* --- video path --- */
+  var mime = pickMime();
+  if (!mime) return;
+
+  var fmt = document.getElementById('fmtIn').value.split('x');
+  var cw = +fmt[0], ch = +fmt[1];
+
+  var cv = document.getElementById('cv');
+  cv.width = cw; cv.height = ch;
+  cv.style.maxWidth = ch > cw ? 'min(100%,320px)' : '100%';
+  var ctx = cv.getContext('2d');
+
+  /* unlock video playback inside this user gesture (required on iPhone/iPad) */
+  imgs.forEach(function(it){
+    if (it.kind !== 'video') return;
+    it.el.muted = true;
+    it.el.currentTime = 0;
+    var pr = it.el.play();
+    if (pr && pr.then) pr.then(function(){ it.el.pause(); it.el.currentTime = 0; }).catch(function(){});
+  });
+
+  var S = E.setup(itemsFor(), logoImg, cw, ch, heroOpts());
+
+  function syncVideos(ts){
+    var live = {};
+    if (ts > 0){
+      var G = E.segState(S, Math.min(ts, S.segTotal - 0.001));
+      live[G.i] = true;
+      if (G.q > 0) live[G.nx] = true;
+    }
+    for (var j = 0; j < imgs.length; j++){
+      var it = imgs[j];
+      if (it.kind !== 'video') continue;
+      if (live[j]){
+        if (it.el.paused && !it.el.ended){
+          var pr = it.el.play();
+          if (pr && pr.catch) pr.catch(function(){});
+        }
+      } else if (!it.el.paused){
+        it.el.pause();
+      }
+    }
+  }
+
+  document.getElementById('stage').classList.add('show');
+  result.classList.remove('show');
+  document.getElementById('goBtn').disabled = true;
+  cv.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+  var stream = cv.captureStream(30);
+  var chunks = [];
+  var rec = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 8000000 });
+  rec.ondataavailable = function(e){ if (e.data && e.data.size) chunks.push(e.data); };
+  rec.onstop = function(){
+    var ext = mime.indexOf('mp4') !== -1 ? 'mp4' : 'webm';
+    var blob = new Blob(chunks, { type: mime.split(';')[0] });
+    var url = URL.createObjectURL(blob);
+    frame.classList.remove('show');
+    hint.classList.remove('show');
+    vid.style.display = 'block';
+    vid.style.maxWidth = ch > cw ? 'min(100%,320px)' : '100%';
+    vid.src = url;
+    dl.href = url;
+    dl.setAttribute('download', 'hero-' + vibe + '.' + ext);
+    dl.textContent = 'Download video';
+    if (after) after.innerHTML =
+      '<b>Next:</b> download it, open your site editor and tap <code>Set hero video</code>, then upload this file — ' +
+      'it loops seamlessly behind your headline. Keep heroes between roughly 10 and 25 seconds so the file stays light ' +
+      'and the loop feels alive. The soft dim is baked in so your headline text stays readable on top.';
+    document.getElementById('stage').classList.remove('show');
+    result.classList.add('show');
+    document.getElementById('goBtn').disabled = false;
+    result.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    vid.play().catch(function(){});
+  };
+
+  var t0 = null;
+  function frameLoop(now){
+    if (t0 === null) t0 = now;
+    var t = (now - t0) / 1000;
+    if (t >= S.total){
+      imgs.forEach(function(it){ if (it.kind === 'video' && !it.el.paused) it.el.pause(); });
+      rec.stop();
+      return;
+    }
+    syncVideos(t - S.imagesStart);
+    drawSceneSafe(t);
+    document.getElementById('barFill').style.width = (t / S.total * 100) + '%';
+    requestAnimationFrame(frameLoop);
+  }
+  function drawSceneSafe(t){ E.drawScene(ctx, S, t); }
+  rec.start(250);
+  requestAnimationFrame(frameLoop);
+});
+
+document.getElementById('againBtn').addEventListener('click', function(){
+  document.getElementById('vibeGrid').scrollIntoView({ behavior: 'smooth', block: 'center' });
+});
+</script>
+</body>
+</html>
