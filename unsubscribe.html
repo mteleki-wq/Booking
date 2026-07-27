@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Email preferences</title>
+<style>
+  :root{
+    --brand:#7a2e2e;
+    --brand-dark:#571e1e;
+    --paper:#faf7f0;
+    --panel:#ffffff;
+    --ink:#241f1c;
+    --soft:#6d655c;
+    --line:#e6dfd2;
+    --ok:#1e7a4f;
+    --err:#b3364f;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{
+    background:var(--paper);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Helvetica Neue',Arial,sans-serif;
+    line-height:1.6;-webkit-font-smoothing:antialiased;
+    min-height:100vh;display:flex;align-items:center;justify-content:center;
+    padding:28px 18px;
+  }
+  .card{
+    background:var(--panel);border:1px solid var(--line);border-radius:16px;
+    max-width:520px;width:100%;padding:36px 32px 32px;
+    box-shadow:0 12px 40px rgba(36,31,28,.06);
+  }
+  .mark{
+    font-family:Georgia,'Times New Roman',serif;font-size:13px;letter-spacing:.14em;
+    text-transform:uppercase;color:var(--brand);margin-bottom:22px;
+  }
+  h1{
+    font-family:Georgia,'Times New Roman',serif;font-weight:400;
+    font-size:27px;line-height:1.25;margin-bottom:12px;
+  }
+  p{color:var(--soft);font-size:15.5px;margin-bottom:18px}
+  p.tight{margin-bottom:10px}
+  .addr{
+    display:inline-block;background:#f4efe4;border-radius:8px;
+    padding:4px 10px;font-weight:600;color:var(--ink);
+    font-size:15px;word-break:break-all;
+  }
+  label{
+    display:block;font-size:11.5px;letter-spacing:.09em;text-transform:uppercase;
+    color:var(--soft);margin-bottom:7px;
+  }
+  input[type=email]{
+    width:100%;padding:13px 14px;font-size:16px;font-family:inherit;
+    background:var(--paper);border:1.5px solid var(--line);border-radius:9px;
+    color:var(--ink);margin-bottom:18px;
+  }
+  input[type=email]:focus{outline:none;border-color:var(--brand)}
+  button{
+    font-family:inherit;font-size:15.5px;font-weight:600;cursor:pointer;
+    padding:14px 24px;border-radius:9px;border:1.5px solid transparent;width:100%;
+  }
+  button:focus-visible{outline:2px solid var(--brand);outline-offset:2px}
+  .primary{background:var(--brand);color:#fff}
+  .primary:hover{background:var(--brand-dark)}
+  .primary[disabled]{opacity:.6;cursor:default}
+  .msg{font-size:14.5px;margin-top:16px;min-height:20px}
+  .msg.err{color:var(--err)}
+  .note{margin-top:16px;font-size:13.5px}
+  .done h1{color:var(--brand)}
+  .tick{
+    width:44px;height:44px;border-radius:50%;background:#e8f3ec;color:var(--ok);
+    display:flex;align-items:center;justify-content:center;font-size:23px;
+    margin-bottom:18px;
+  }
+  .foot{
+    border-top:1px solid var(--line);margin-top:26px;padding-top:16px;
+    font-size:13px;color:var(--soft);
+  }
+  .foot a{color:var(--brand)}
+  .foot:empty{display:none}
+  @media (prefers-reduced-motion: no-preference){
+    .card{animation:rise .4s ease both}
+    @keyframes rise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+  }
+</style>
+</head>
+<body>
+
+<main class="card">
+  <div class="mark" id="brandMark" style="display:none"></div>
+
+  <div id="stepConfirm">
+    <h1 id="confirmHead">Stop receiving marketing emails?</h1>
+    <p class="tight" id="introText">Confirm below and we'll remove this address from our news and offers.</p>
+    <p id="addrWrap" style="display:none"><span class="addr" id="addrText"></span></p>
+
+    <div id="manualWrap" style="display:none">
+      <label for="emailInput">Your email address</label>
+      <input type="email" id="emailInput" placeholder="you@email.com" autocomplete="email" inputmode="email">
+    </div>
+
+    <button class="primary" id="confirmBtn">Unsubscribe me</button>
+    <div class="msg" id="msg"></div>
+    <p class="note">You'll still get emails about bookings you make &mdash; confirmations, reminders and changes. Those aren't marketing, so we don't switch them off here.</p>
+  </div>
+
+  <div id="stepDone" style="display:none" class="done">
+    <div class="tick" aria-hidden="true">&#10003;</div>
+    <h1>You're unsubscribed</h1>
+    <p>We've removed <span class="addr" id="doneAddr"></span> from our marketing list. Anything already queued may take a little while to stop.</p>
+    <p style="margin-bottom:0" id="doneBack">Changed your mind? Just reply to any of our booking emails and we'll add you back.</p>
+  </div>
+
+  <div class="foot" id="footer"></div>
+</main>
+
+<script>
+/* ============================================================
+   Unsubscribe page — one copy serves every restaurant.
+
+   The venue arrives in the URL as ?venue=<slug>, exactly like the
+   booking page, and the display name is looked up from the
+   database. The CRM's send workflow builds these links for you,
+   so normally the only thing to fill in below is the Supabase
+   connection.
+   ============================================================ */
+var CONFIG = {
+
+  /* — Supabase connection (Project Settings -> API) — */
+  supabaseUrl:     "https://YOUR-PROJECT.supabase.co",   // <- paste your Project URL
+  supabaseAnonKey: "PASTE-YOUR-ANON-PUBLIC-KEY-HERE",    // <- paste the anon public key
+
+  /* — Which restaurant this page is for —
+     Normally supplied by the link as ?venue=cafe-bojo, so ONE copy of
+     this page can serve every client. This is only the fallback when the
+     page is opened on its own. Leave "" on a single-restaurant database. */
+  venue: "",
+
+  /* — Identity —
+     Leave BLANK. The name is looked up from the venue code, the same way
+     the booking page does it. Only fill these in if you are hosting a
+     private copy for a single restaurant.                              */
+  restaurantName: "",
+  contactPhone:   "",
+  contactEmail:   ""
+};
+
+var SB = CONFIG.supabaseUrl.replace(/\/+$/, "");
+function $(id){ return document.getElementById(id); }
+function sbConfigured(){
+  return SB.indexOf("YOUR-PROJECT") === -1 && CONFIG.supabaseAnonKey.indexOf("PASTE-") === -1;
+}
+function sbHeaders(){
+  return {
+    "apikey": CONFIG.supabaseAnonKey,
+    "Authorization": "Bearer " + CONFIG.supabaseAnonKey,
+    "Content-Type": "application/json"
+  };
+}
+
+/* ---------- which venue, and what is it called? ---------- */
+var params = new URLSearchParams(location.search);
+var VENUE = (params.get("venue") || CONFIG.venue || "").trim();
+
+(function resolveVenue(){
+  if (!VENUE) return;
+  var name = params.get("name");
+  CONFIG.restaurantName = name || VENUE.replace(/-+/g, " ")
+      .replace(/\b\w/g, function(c){ return c.toUpperCase(); });
+  if (params.get("phone")) CONFIG.contactPhone = params.get("phone");
+})();
+
+function paintBrand(){
+  var name = CONFIG.restaurantName;
+  if (name){
+    $("brandMark").textContent = name;
+    $("brandMark").style.display = "";
+    document.title = "Email preferences \u00b7 " + name;
+  } else {
+    $("brandMark").style.display = "none";
+    document.title = "Email preferences";
+  }
+  var bits = [];
+  if (name) bits.push(name);
+  if (CONFIG.contactPhone) bits.push(CONFIG.contactPhone);
+  var line = bits.join(" \u00b7 ");
+  if (CONFIG.contactEmail){
+    line += (line ? " \u00b7 " : "") +
+      '<a href="mailto:' + CONFIG.contactEmail + '">' + CONFIG.contactEmail + "</a>";
+  }
+  $("footer").innerHTML = line;
+}
+paintBrand();
+
+/* real name from the database, same get_venue call the booking page uses */
+(async function lookupVenue(){
+  if (!VENUE || !sbConfigured()) return;
+  try {
+    var res = await fetch(SB + "/rest/v1/rpc/get_venue", {
+      method: "POST", headers: sbHeaders(),
+      body: JSON.stringify({ p_venue: VENUE })
+    });
+    if (!res.ok) return;
+    var v = await res.json();
+    if (Array.isArray(v)) v = v[0];
+    if (!v || !v.name) return;
+    CONFIG.restaurantName = v.name;
+    if (v.phone) CONFIG.contactPhone = v.phone;
+    if (v.email) CONFIG.contactEmail = v.email;
+    paintBrand();
+  } catch(e){ /* keep the name we already have */ }
+})();
+
+/* ---------- who is unsubscribing? ----------
+   The email arrives as ?e=<base64url>, added per recipient when the CRM
+   sends. ?email=<plain> also works. Otherwise we ask for it.          */
+function b64urlDecode(s){
+  try {
+    s = String(s).replace(/-/g, "+").replace(/_/g, "/");
+    while (s.length % 4) s += "=";
+    return decodeURIComponent(escape(atob(s)));
+  } catch(e){ return ""; }
+}
+function looksLikeEmail(v){
+  v = String(v || "").trim();
+  var at = v.indexOf("@"), dot = v.lastIndexOf(".");
+  return at > 0 && dot > at + 1 && dot < v.length - 1 && v.indexOf(" ") === -1;
+}
+function maskEmail(v){
+  var at = v.indexOf("@");
+  if (at < 2) return v;
+  var user = v.slice(0, at), domain = v.slice(at);
+  var keep = Math.min(2, user.length - 1);
+  return user.slice(0, keep) + "\u2022".repeat(Math.max(2, user.length - keep)) + domain;
+}
+
+var target = "";
+if (params.get("e")) target = b64urlDecode(params.get("e")).trim();
+if (!looksLikeEmail(target) && params.get("email")) target = String(params.get("email")).trim();
+
+if (looksLikeEmail(target)){
+  $("addrWrap").style.display = "";
+  $("addrText").textContent = maskEmail(target);
+} else {
+  target = "";
+  $("introText").textContent = "Enter the address you'd like removed from our news and offers.";
+  $("manualWrap").style.display = "";
+}
+
+/* ---------- submit ---------- */
+function helpLine(){
+  return CONFIG.contactEmail
+    ? ("That didn't go through. Please email " + CONFIG.contactEmail + " and we'll remove you by hand.")
+    : "That didn't go through. Please reply to any email from us and we'll remove you by hand.";
+}
+
+$("confirmBtn").addEventListener("click", async function(){
+  var btn = this, msg = $("msg");
+  msg.className = "msg"; msg.textContent = "";
+
+  var email = target || ($("emailInput") ? $("emailInput").value.trim() : "");
+  if (!looksLikeEmail(email)){
+    msg.className = "msg err";
+    msg.textContent = "Enter a valid email address to continue.";
+    if ($("emailInput")) $("emailInput").focus();
+    return;
+  }
+  if (!sbConfigured()){
+    msg.className = "msg err";
+    msg.textContent = "This page isn't connected yet \u2014 set the Supabase URL and key in its CONFIG.";
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = "Removing\u2026";
+  try {
+    var body = { p_email: email };
+    if (VENUE) body.p_venue = VENUE;
+    var res = await fetch(SB + "/rest/v1/rpc/unsubscribe_email", {
+      method: "POST", headers: sbHeaders(), body: JSON.stringify(body)
+    });
+    if (!res.ok) throw new Error("status " + res.status);
+    var out = await res.json();
+    if (out && out.ok === false) throw new Error(out.error || "rejected");
+
+    $("doneAddr").textContent = email;
+    $("stepConfirm").style.display = "none";
+    $("stepDone").style.display = "";
+  } catch(e){
+    btn.disabled = false;
+    btn.textContent = "Unsubscribe me";
+    msg.className = "msg err";
+    msg.textContent = helpLine();
+  }
+});
+
+if ($("emailInput")){
+  $("emailInput").addEventListener("keydown", function(e){
+    if (e.key === "Enter") $("confirmBtn").click();
+  });
+}
+</script>
+</body>
+</html>
