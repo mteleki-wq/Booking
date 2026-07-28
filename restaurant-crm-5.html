@@ -1,0 +1,1428 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Restaurant CRM — WebEscapade</title>
+<!--
+  ============================================================
+  RESTAURANT CRM  ·  step 1: pipeline + restaurant records
+  ============================================================
+  Tracks the restaurants YOU are working with — not their guests.
+  (The guest CRM lives inside the booking page; this is the
+  business layer above it.)
+
+  SETUP
+  1. Run crm-setup.sql once in your Supabase SQL editor.
+  2. Open this page, tap Settings, paste the project URL and the
+     ANON key, then sign in with your Supabase staff login.
+  3. Nothing is written into this file — the URL, key and session
+     live in this browser only, so the file is safe to publish.
+
+  Without Supabase it still runs, storing everything on this
+  device, so you can start entering restaurants straight away.
+  ============================================================
+-->
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=Space+Mono:wght@400;700&display=swap');
+  :root{
+    --bg:#070b18;--card:#0d1226;--card2:#121834;--ink:#eef1fb;--muted:#9aa3c7;
+    --line:rgba(154,163,199,.18);
+    --grad:linear-gradient(100deg,#a855f7 0%,#4f7cff 55%,#39d0c3 100%);
+    --teal:#39d0c3;--amber:#ffd479;--rose:#ff6b8a;--green:#4ade80;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  body{background:var(--bg);color:var(--ink);font-family:'Sora',-apple-system,sans-serif;line-height:1.6;-webkit-font-smoothing:antialiased;min-height:100vh}
+  .mono{font-family:'Space Mono',monospace}
+
+  /* ---------- top bar ---------- */
+  header{position:sticky;top:0;z-index:60;background:rgba(7,11,24,.88);backdrop-filter:blur(14px);border-bottom:1px solid var(--line)}
+  .bar{max-width:1180px;margin:0 auto;padding:13px 18px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+  .brand{font-weight:800;font-size:16px;letter-spacing:-.01em;white-space:nowrap}
+  .brand span{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .tabs{display:flex;gap:5px;margin-left:auto;flex-wrap:wrap}
+  .tab{
+    background:transparent;border:1px solid var(--line);border-radius:100px;color:var(--muted);
+    font-family:'Sora',sans-serif;font-weight:700;font-size:12px;padding:8px 15px;cursor:pointer;transition:.2s;
+  }
+  .tab:hover{color:var(--ink)}
+  .tab.on{color:#fff;border-color:transparent;background:var(--grad)}
+  .icon-btn{background:transparent;border:1px solid var(--line);border-radius:50%;width:34px;height:34px;color:var(--muted);cursor:pointer;font-size:14px}
+  .icon-btn:hover{color:var(--ink)}
+
+  .wrap{max-width:1180px;margin:0 auto;padding:20px 18px 90px}
+
+  /* ---------- stat strip ---------- */
+  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(132px,1fr));gap:10px;margin-bottom:20px}
+  .stat{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 16px}
+  .stat b{display:block;font-size:24px;font-weight:800;line-height:1.2}
+  .stat span{font-family:'Space Mono',monospace;font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted)}
+  .stat.warn b{color:var(--amber)}
+  .stat.good b{color:var(--green)}
+
+  /* ---------- toolbar ---------- */
+  .toolbar{display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;align-items:center}
+  .search{
+    flex:1;min-width:190px;background:var(--card);border:1px solid var(--line);border-radius:100px;
+    color:var(--ink);font-family:'Sora',sans-serif;font-size:13.5px;padding:11px 16px;outline:none;
+  }
+  .search:focus{border-color:var(--teal)}
+  .btn{
+    background:var(--card);border:1px solid var(--line);border-radius:100px;color:var(--ink);
+    font-family:'Sora',sans-serif;font-weight:700;font-size:13px;padding:11px 18px;cursor:pointer;
+  }
+  .btn:hover{border-color:var(--teal)}
+  .btn.primary{background:var(--grad);border:none;color:#fff;font-weight:800}
+  .btn.ghost{background:transparent;color:var(--muted)}
+  .btn.danger{color:var(--rose);border-color:rgba(255,107,138,.4)}
+
+  /* ---------- pipeline board ---------- */
+  .board{display:flex;gap:13px;overflow-x:auto;padding-bottom:10px;scroll-snap-type:x proximity}
+  .col{flex:0 0 265px;scroll-snap-align:start;display:flex;flex-direction:column;gap:10px}
+  .col-head{display:flex;align-items:center;gap:8px;padding:2px 4px}
+  .col-head b{font-size:12.5px;font-weight:800}
+  .col-head .n{
+    font-family:'Space Mono',monospace;font-size:10px;color:var(--muted);
+    border:1px solid var(--line);border-radius:100px;padding:1px 8px;margin-left:auto;
+  }
+  .dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+  .card{
+    background:var(--card);border:1px solid var(--line);border-radius:14px;padding:13px 14px;cursor:pointer;
+    transition:transform .18s cubic-bezier(.34,1.4,.64,1),border-color .18s;
+  }
+  .card:hover{transform:translateY(-2px);border-color:rgba(57,208,195,.45)}
+  .card:active{transform:scale(.985)}
+  .card b{display:block;font-size:14px;font-weight:700;line-height:1.35}
+  .card .sub{font-size:11.5px;color:var(--muted);margin-top:2px}
+  .card .meta{display:flex;align-items:center;gap:7px;margin-top:10px}
+  .pips{display:flex;gap:4px;margin-left:auto}
+  .pip{width:7px;height:7px;border-radius:50%;background:rgba(154,163,199,.3)}
+  .pip.on{background:var(--teal)}
+  .age{font-family:'Space Mono',monospace;font-size:9.5px;color:var(--muted)}
+  .age.hot{color:var(--amber)}
+  .empty-col{
+    border:1px dashed var(--line);border-radius:14px;padding:16px;text-align:center;
+    color:var(--muted);font-size:11.5px;
+  }
+
+  /* ---------- detail sheet ---------- */
+  .sheet-bg{position:fixed;inset:0;background:rgba(3,5,12,.72);backdrop-filter:blur(6px);z-index:80;display:none}
+  .sheet-bg.open{display:block}
+  .sheet{
+    position:fixed;top:0;right:0;bottom:0;width:min(100vw,520px);z-index:81;background:var(--card);
+    border-left:1px solid var(--line);overflow-y:auto;transform:translateX(100%);transition:transform .3s cubic-bezier(.4,0,.2,1);
+  }
+  .sheet.open{transform:none}
+  .sheet-in{padding:20px 20px 60px}
+  .sheet h2{font-size:19px;font-weight:800;line-height:1.25}
+  .sheet-top{display:flex;align-items:flex-start;gap:12px;margin-bottom:4px}
+  .sheet-top .icon-btn{margin-left:auto;flex-shrink:0}
+  .sec{margin-top:22px}
+  .sec-t{font-family:'Space Mono',monospace;font-size:9.5px;letter-spacing:.2em;text-transform:uppercase;color:var(--muted);margin-bottom:10px;display:flex;align-items:center;gap:10px}
+  .sec-t::after{content:"";flex:1;height:1px;background:var(--line)}
+  .fields{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .fields .full{grid-column:1/-1}
+  label.f{display:block}
+  label.f span{display:block;font-family:'Space Mono',monospace;font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-bottom:5px}
+  input,select,textarea{
+    width:100%;background:var(--bg);border:1px solid var(--line);border-radius:10px;color:var(--ink);
+    font-family:'Sora',sans-serif;font-size:13px;padding:10px 11px;outline:none;
+  }
+  input:focus,select:focus,textarea:focus{border-color:var(--teal)}
+  textarea{resize:vertical;min-height:70px;line-height:1.55}
+  .row-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+
+  .contact{background:var(--card2);border:1px solid var(--line);border-radius:12px;padding:11px 12px;margin-bottom:8px}
+  .contact b{font-size:13px}
+  .contact .who{font-size:11px;color:var(--muted)}
+  .contact .links{display:flex;gap:8px;margin-top:7px;flex-wrap:wrap}
+  .contact a{color:var(--teal);font-size:11.5px;text-decoration:none;border:1px solid rgba(57,208,195,.3);border-radius:100px;padding:4px 10px}
+
+  .tl{border-left:1px solid var(--line);margin-left:6px;padding-left:14px}
+  .tl-item{position:relative;padding-bottom:15px}
+  .tl-item::before{content:"";position:absolute;left:-19px;top:5px;width:8px;height:8px;border-radius:50%;background:var(--grad)}
+  .tl-item .when{font-family:'Space Mono',monospace;font-size:9.5px;color:var(--muted)}
+  .tl-item .what{font-size:13px;margin-top:2px;white-space:pre-wrap}
+  .tl-kind{font-family:'Space Mono',monospace;font-size:8.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--teal);border:1px solid rgba(57,208,195,.3);border-radius:100px;padding:1px 7px;margin-right:6px}
+
+  /* ---------- gates ---------- */
+  .gate{max-width:430px;margin:56px auto;background:var(--card);border:1px solid var(--line);border-radius:20px;padding:26px}
+  .gate h1{font-size:21px;font-weight:800;margin-bottom:6px}
+  .gate p{color:var(--muted);font-size:13.5px;margin-bottom:18px}
+  .gate label.f{margin-bottom:12px;display:block}
+  .note{color:var(--muted);font-size:12px;margin-top:14px;line-height:1.6}
+  .msg{font-family:'Space Mono',monospace;font-size:11.5px;margin-top:12px;min-height:16px}
+  .msg.bad{color:var(--rose)}
+  .msg.ok{color:var(--teal)}
+
+  .soon{background:var(--card);border:1px dashed var(--line);border-radius:16px;padding:28px;text-align:center;color:var(--muted)}
+  .soon b{display:block;color:var(--ink);font-size:15px;margin-bottom:6px}
+  .hide{display:none!important}
+  .two{display:grid;grid-template-columns:1.15fr .85fr;gap:16px;align-items:start}
+  @media(max-width:900px){ .two{grid-template-columns:1fr} }
+  .panel{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px;margin-bottom:16px}
+  .pick{display:flex;align-items:center;gap:10px;padding:9px 10px;border:1px solid var(--line);border-radius:10px;margin-bottom:7px;cursor:pointer}
+  .pick.on{border-color:rgba(57,208,195,.5);background:rgba(57,208,195,.06)}
+  .pick b{font-size:12.5px;display:block}
+  .pick span{font-size:11px;color:var(--muted)}
+  .pick .tick{width:16px;height:16px;border-radius:5px;border:1px solid var(--line);flex-shrink:0}
+  .pick.on .tick{background:var(--grad);border-color:transparent}
+  .mkcard{background:var(--card2);border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:9px}
+  .mkcard .fields{grid-template-columns:1fr 1fr}
+  .ptable{background:var(--card);border:1px solid var(--line);border-radius:16px;overflow:hidden}
+  .prow{display:grid;grid-template-columns:1.6fr .8fr .8fr 1fr 1fr;gap:10px;padding:13px 16px;border-bottom:1px solid var(--line);align-items:center}
+  .prow:last-child{border-bottom:none}
+  .prow.head{background:var(--card2);font-family:'Space Mono',monospace;font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+  .prow b{font-size:13.5px;font-weight:700}
+  .prow .s{font-size:11px;color:var(--muted)}
+  .num{font-family:'Space Mono',monospace;font-size:14px}
+  .health{font-family:'Space Mono',monospace;font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;border-radius:100px;padding:3px 9px;border:1px solid;display:inline-block}
+  .health.good{color:var(--green);border-color:rgba(74,222,128,.35)}
+  .health.warn{color:var(--amber);border-color:rgba(255,212,121,.35)}
+  .health.bad{color:var(--rose);border-color:rgba(255,107,138,.35)}
+  .health.idle{color:var(--muted);border-color:var(--line)}
+  .sec-block{margin-bottom:20px}
+  .sec-block h3{font-size:14px;font-weight:800;margin-bottom:10px;display:flex;align-items:center;gap:10px}
+  .sec-block h3 small{font-family:'Space Mono',monospace;font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);font-weight:400}
+  @media(max-width:720px){
+    .prow{grid-template-columns:1.4fr .7fr 1fr;}
+    .prow .hide-sm{display:none}
+  }
+  .mode-pill{
+    font-family:'Space Mono',monospace;font-size:9px;letter-spacing:.14em;text-transform:uppercase;
+    border:1px solid var(--line);border-radius:100px;padding:3px 9px;color:var(--muted);
+  }
+  .mode-pill.local{color:var(--amber);border-color:rgba(255,212,121,.35)}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="bar">
+    <div class="brand">Restaurant <span>CRM</span></div>
+    <span class="mode-pill" id="modePill">local</span>
+    <div class="tabs">
+      <button class="tab on" data-view="pipeline">Pipeline</button>
+      <button class="tab" data-view="perf">Performance</button>
+      <button class="tab" data-view="email">Email</button>
+      <button class="tab" data-view="mkt">Marketing</button>
+    </div>
+    <button class="icon-btn" id="btnCfg" title="Settings">⚙</button>
+  </div>
+</header>
+
+<!-- ============ settings ============ -->
+<div class="wrap hide" id="viewCfg">
+  <div class="gate">
+    <h1>Connect Supabase</h1>
+    <p>Paste your project URL and <b>anon</b> key. They are stored in this browser only — never written into the file — so this page is safe to publish.</p>
+    <label class="f"><span>Project URL</span><input type="text" id="cfgUrl" placeholder="https://xxxx.supabase.co" autocapitalize="off" autocorrect="off" spellcheck="false"></label>
+    <label class="f"><span>Anon key</span><input type="text" id="cfgKey" placeholder="eyJ…" autocapitalize="off" autocorrect="off" spellcheck="false"></label>
+    <div class="row-actions">
+      <button class="btn primary" id="cfgSave">Save &amp; continue</button>
+      <button class="btn ghost" id="cfgSkip">Work offline on this device</button>
+    </div>
+    <div class="msg" id="cfgMsg"></div>
+    <p class="note">Run <b>crm-setup.sql</b> in the SQL editor first — it creates the three CRM tables and leaves your bookings untouched.</p>
+  </div>
+</div>
+
+<!-- ============ sign in ============ -->
+<div class="wrap hide" id="viewAuth">
+  <div class="gate">
+    <h1>Sign in</h1>
+    <p>Use your Supabase staff login. The CRM tables are locked to signed-in users only.</p>
+    <label class="f"><span>Email</span><input type="email" id="authEmail" autocapitalize="off" autocorrect="off" spellcheck="false"></label>
+    <label class="f"><span>Password</span><input type="password" id="authPass"></label>
+    <div class="row-actions">
+      <button class="btn primary" id="authGo">Sign in</button>
+      <button class="btn ghost" id="authCfg">Change project</button>
+    </div>
+    <div class="msg" id="authMsg"></div>
+  </div>
+</div>
+
+<!-- ============ tables missing ============ -->
+<div class="wrap hide" id="viewSetup">
+  <div class="gate">
+    <h1>Almost there</h1>
+    <p>You are signed in, but the three CRM tables are not in this project yet, so there is nothing to read.</p>
+    <p class="note" style="margin-top:0">
+      Open the Supabase <b>SQL editor</b>, paste the whole of <b>crm-setup.sql</b> and run it.
+      It creates <span class="mono">crm_accounts</span>, <span class="mono">crm_contacts</span> and
+      <span class="mono">crm_activity</span> and leaves your bookings alone.
+    </p>
+    <p class="note">
+      If a statement fails, Postgres rolls back the <i>whole</i> script — so nothing is created until it
+      runs cleanly from top to bottom.
+    </p>
+    <div class="row-actions">
+      <button class="btn primary" id="setupRetry">I have run it — try again</button>
+      <button class="btn ghost" id="setupOffline">Work offline meanwhile</button>
+    </div>
+    <div class="msg" id="setupMsg"></div>
+  </div>
+</div>
+
+<!-- ============ pipeline ============ -->
+<div class="wrap hide" id="viewPipeline">
+  <div class="stats" id="stats"></div>
+  <div class="toolbar">
+    <input class="search" id="q" placeholder="Search restaurants, suburbs, contacts…" autocapitalize="off">
+    <button class="btn primary" id="addBtn">+ Add restaurant</button>
+  </div>
+  <div class="board" id="board"></div>
+</div>
+
+<!-- ============ placeholders for the next steps ============ -->
+<div class="wrap hide" id="viewPerf">
+  <div class="stats" id="perfStats"></div>
+  <div class="toolbar">
+    <select id="perfDays" style="max-width:170px">
+      <option value="7">Last 7 days</option>
+      <option value="30" selected>Last 30 days</option>
+      <option value="90">Last 90 days</option>
+    </select>
+    <button class="btn" id="perfRefresh">Refresh</button>
+    <button class="btn ghost" id="perfGh">GitHub token</button>
+  </div>
+  <div id="perfGhBox" class="hide" style="background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:16px">
+    <label class="f"><span>Fine-grained token — Contents: Read on your repos</span>
+      <input type="text" id="ghTok" placeholder="github_pat_…" autocapitalize="off" autocorrect="off" spellcheck="false"></label>
+    <div class="row-actions">
+      <button class="btn primary" id="ghSave">Save token</button>
+      <button class="btn ghost" id="ghClear">Forget it</button>
+    </div>
+    <p class="note">Stored in this browser only, never written into the file. Public repos work without one, but you will hit GitHub's hourly limit sooner.</p>
+  </div>
+  <div id="perfBody"></div>
+</div>
+<div class="wrap hide" id="viewEmail">
+  <div class="two">
+    <div>
+      <div class="panel">
+        <div class="sec-t">Message</div>
+        <label class="f"><span>Template</span><select id="emTpl"></select></label>
+        <label class="f"><span>Subject</span><input type="text" id="emSubj"></label>
+        <label class="f"><span>Body</span><textarea id="emBody" rows="12"></textarea></label>
+        <p class="note">Merge fields: <span class="mono">{restaurant} {first} {name} {live_url} {booking_url} {trial_end} {slug}</span> — each recipient gets their own copy with these filled in.</p>
+        <div class="row-actions">
+          <button class="btn" id="emPrev">Preview</button>
+          <button class="btn primary" id="emSend">Send</button>
+        </div>
+        <div class="msg" id="emMsg"></div>
+      </div>
+      <div class="panel hide" id="emPrevBox">
+        <div class="sec-t">Preview — first recipient</div>
+        <div id="emPrevOut" style="background:#fff;color:#111;border-radius:10px;padding:16px;font-size:13.5px;line-height:1.6;white-space:pre-wrap"></div>
+      </div>
+    </div>
+    <div>
+      <div class="panel">
+        <div class="sec-t">Who it goes to</div>
+        <label class="f"><span>Filter by stage</span><select id="emStage">
+          <option value="">Everyone with an email</option>
+          <option value="prospect">Prospects</option>
+          <option value="demo">Demo sent</option>
+          <option value="trial">On trial</option>
+          <option value="live">Live clients</option>
+          <option value="risk">At risk</option>
+        </select></label>
+        <div class="row-actions" style="margin-top:4px">
+          <button class="btn ghost" id="emAll">Select all</button>
+          <button class="btn ghost" id="emNone">Clear</button>
+        </div>
+        <div id="emList" style="margin-top:12px;max-height:340px;overflow-y:auto"></div>
+      </div>
+      <div class="panel">
+        <div class="sec-t">Sender</div>
+        <label class="f"><span>From (must be a verified Resend domain)</span>
+          <input type="text" id="emFrom" placeholder="Marc at WebEscapade &lt;marc@webescapade.com&gt;" autocapitalize="off" spellcheck="false"></label>
+        <label class="f"><span>Reply-to (optional)</span><input type="text" id="emReply" autocapitalize="off" spellcheck="false"></label>
+        <div class="row-actions"><button class="btn" id="emSaveFrom">Save sender</button></div>
+        <p class="note">Leave From blank to use the <span class="mono">CRM_FROM</span> secret set on the Edge Function.</p>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="wrap hide" id="viewMkt">
+  <div class="two">
+    <div>
+      <div class="panel">
+        <div class="sec-t">Campaign</div>
+        <label class="f"><span>Subject</span><input type="text" id="mkSubj" placeholder="A website and booking system for your restaurant"></label>
+        <label class="f"><span>Headline</span><input type="text" id="mkHead" placeholder="Take bookings from your own website"></label>
+        <label class="f"><span>Opening paragraph</span><textarea id="mkIntro" rows="4"></textarea></label>
+        <label class="f"><span>Closing paragraph</span><textarea id="mkOutro" rows="3"></textarea></label>
+        <div class="fields">
+          <label class="f"><span>Button text</span><input type="text" id="mkCtaT" placeholder="See what it looks like"></label>
+          <label class="f"><span>Button link</span><input type="text" id="mkCtaU" placeholder="https://…" autocapitalize="off" spellcheck="false"></label>
+        </div>
+        <label class="f"><span>Unsubscribe link (required)</span>
+          <input type="text" id="mkUnsub" placeholder="https://mteleki-wq.github.io/Booking/unsubscribe.html" autocapitalize="off" spellcheck="false"></label>
+      </div>
+      <div class="panel">
+        <div class="sec-t">Try it live — demo cards</div>
+        <div id="mkCards"></div>
+        <div class="row-actions"><button class="btn" id="mkAddCard">+ Add a demo</button></div>
+        <p class="note">Each card shows a restaurant with a “See the site” and “Try booking a table” button, so they can use the real thing before replying.</p>
+      </div>
+    </div>
+    <div>
+      <div class="panel">
+        <div class="sec-t">Send to</div>
+        <label class="f"><span>Segment</span><select id="mkStage">
+          <option value="prospect">Prospects</option>
+          <option value="demo">Demo sent</option>
+          <option value="trial">On trial</option>
+          <option value="live">Live clients</option>
+          <option value="">Everyone with an email</option>
+        </select></label>
+        <div id="mkCount" class="note"></div>
+        <div class="row-actions">
+          <button class="btn" id="mkPrev">Preview</button>
+          <button class="btn" id="mkTest">Send me a test</button>
+          <button class="btn primary" id="mkSend">Send campaign</button>
+        </div>
+        <div class="msg" id="mkMsg"></div>
+      </div>
+      <div class="panel hide" id="mkPrevBox">
+        <div class="sec-t">Preview</div>
+        <iframe id="mkFrame" style="width:100%;height:520px;border:1px solid var(--line);border-radius:10px;background:#fff"></iframe>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ detail sheet ============ -->
+<div class="sheet-bg" id="sheetBg"></div>
+<aside class="sheet" id="sheet"><div class="sheet-in" id="sheetIn"></div></aside>
+
+<script>
+/* ============================================================
+   storage layer — Supabase when configured, this device if not
+   ============================================================ */
+var CFG = {
+  url: localStorage.getItem('crm_url') || '',
+  key: localStorage.getItem('crm_key') || '',
+  tok: localStorage.getItem('crm_tok') || ''
+};
+var LIVE = false;              /* true once signed in to Supabase */
+var accounts = [], contacts = [], activity = [];
+
+function lsGet(k, d){ try { return JSON.parse(localStorage.getItem(k)) || d; } catch(e){ return d; } }
+function lsSet(k, v){ try { localStorage.setItem(k, JSON.stringify(v)); } catch(e){} }
+
+function api(path, opts){
+  opts = opts || {};
+  var h = {
+    'apikey': CFG.key,
+    'Authorization': 'Bearer ' + (CFG.tok || CFG.key),
+    'Content-Type': 'application/json'
+  };
+  if(opts.prefer) h['Prefer'] = opts.prefer;
+  return fetch(CFG.url.replace(/\/+$/,'') + '/rest/v1/' + path, {
+    method: opts.method || 'GET',
+    headers: h,
+    body: opts.body ? JSON.stringify(opts.body) : undefined
+  }).then(function(r){
+    if(!r.ok) return r.text().then(function(t){ throw new Error(t || ('HTTP ' + r.status)); });
+    return r.status === 204 ? null : r.json();
+  });
+}
+
+function uid(){ return 'loc-' + Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
+
+/* turn Supabase/PostgREST errors into something actionable */
+function friendly(e){
+  var t = String((e && e.message) || e || '');
+  if(/PGRST205|Could not find the table/i.test(t))
+    return 'TABLES_MISSING';
+  if(/JWT|expired|invalid token/i.test(t))
+    return 'Your session has expired — sign in again.';
+  if(/Invalid login credentials/i.test(t))
+    return 'That email or password was not accepted.';
+  if(/permission denied|row-level security/i.test(t))
+    return 'Signed in, but the CRM tables are refusing access. Re-run crm-setup.sql so the policies are applied.';
+  if(/Failed to fetch|NetworkError|Load failed/i.test(t))
+    return 'Could not reach Supabase. Check the project URL and that you are online.';
+  return t.slice(0, 200);
+}
+
+/* ---------- loading ---------- */
+function loadAll(){
+  if(!LIVE){
+    accounts = lsGet('crm_accounts', []);
+    contacts = lsGet('crm_contacts', []);
+    activity = lsGet('crm_activity', []);
+    return Promise.resolve();
+  }
+  return Promise.all([
+    api('crm_accounts?select=*&order=updated_at.desc'),
+    api('crm_contacts?select=*'),
+    api('crm_activity?select=*&order=created_at.desc&limit=500')
+  ]).then(function(r){
+    accounts = r[0] || []; contacts = r[1] || []; activity = r[2] || [];
+  });
+}
+
+/* ---------- writing ---------- */
+function saveAccount(a){
+  if(!LIVE){
+    var i = accounts.findIndex(function(x){ return x.id === a.id; });
+    a.updated_at = new Date().toISOString();
+    if(i < 0){ a.id = a.id || uid(); a.created_at = a.updated_at; accounts.unshift(a); }
+    else accounts[i] = a;
+    lsSet('crm_accounts', accounts);
+    return Promise.resolve(a);
+  }
+  var body = {};
+  ['name','slug','suburb','cuisine','stage','source','repo','live_url','booking_url',
+   'licence_key','trial_start','trial_end','monthly_fee','notes'].forEach(function(k){
+    body[k] = a[k] === '' ? null : a[k];
+  });
+  if(a.id){
+    return api('crm_accounts?id=eq.' + a.id, { method:'PATCH', body:body, prefer:'return=representation' })
+      .then(function(r){ return (r && r[0]) || a; });
+  }
+  return api('crm_accounts', { method:'POST', body:body, prefer:'return=representation' })
+    .then(function(r){ return (r && r[0]) || a; });
+}
+function deleteAccount(id){
+  if(!LIVE){
+    accounts = accounts.filter(function(a){ return a.id !== id; });
+    contacts = contacts.filter(function(c){ return c.account_id !== id; });
+    activity = activity.filter(function(t){ return t.account_id !== id; });
+    lsSet('crm_accounts', accounts); lsSet('crm_contacts', contacts); lsSet('crm_activity', activity);
+    return Promise.resolve();
+  }
+  return api('crm_accounts?id=eq.' + id, { method:'DELETE' });
+}
+function addActivity(accountId, kind, body, meta){
+  if(!LIVE){
+    activity.unshift({ id:uid(), account_id:accountId, kind:kind, body:body, meta:meta||null,
+                       created_at:new Date().toISOString() });
+    lsSet('crm_activity', activity);
+    return Promise.resolve();
+  }
+  return api('crm_activity', { method:'POST', body:{ account_id:accountId, kind:kind, body:body, meta:meta||null } });
+}
+function saveContact(c){
+  if(!LIVE){
+    var i = contacts.findIndex(function(x){ return x.id === c.id; });
+    if(i < 0){ c.id = c.id || uid(); c.created_at = new Date().toISOString(); contacts.push(c); }
+    else contacts[i] = c;
+    lsSet('crm_contacts', contacts);
+    return Promise.resolve(c);
+  }
+  var body = { account_id:c.account_id, name:c.name, role:c.role, email:c.email, phone:c.phone, is_primary:!!c.is_primary };
+  if(c.id) return api('crm_contacts?id=eq.' + c.id, { method:'PATCH', body:body });
+  return api('crm_contacts', { method:'POST', body:body, prefer:'return=representation' })
+    .then(function(r){ return (r && r[0]) || c; });
+}
+function deleteContact(id){
+  if(!LIVE){
+    contacts = contacts.filter(function(c){ return c.id !== id; });
+    lsSet('crm_contacts', contacts);
+    return Promise.resolve();
+  }
+  return api('crm_contacts?id=eq.' + id, { method:'DELETE' });
+}
+
+/* ============================================================
+   pipeline
+   ============================================================ */
+var STAGES = [
+  { key:'prospect', label:'Prospect',  colour:'#9aa3c7' },
+  { key:'demo',     label:'Demo sent', colour:'#a855f7' },
+  { key:'trial',    label:'Trial',     colour:'#ffd479' },
+  { key:'live',     label:'Live',      colour:'#4ade80' },
+  { key:'risk',     label:'At risk',   colour:'#ff6b8a' }
+];
+
+function daysBetween(a, b){ return Math.floor((b - a) / 86400000); }
+function ageOf(a){
+  var t = new Date(a.updated_at || a.created_at || Date.now());
+  return daysBetween(t, new Date());
+}
+function trialLeft(a){
+  if(!a.trial_end) return null;
+  return daysBetween(new Date(), new Date(a.trial_end + 'T23:59:59'));
+}
+function esc(s){
+  return String(s == null ? '' : s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function matches(a, q){
+  if(!q) return true;
+  q = q.toLowerCase();
+  var people = contacts.filter(function(c){ return c.account_id === a.id; })
+    .map(function(c){ return [c.name, c.email, c.role].join(' '); }).join(' ');
+  return [a.name, a.suburb, a.cuisine, a.slug, a.repo, people].join(' ').toLowerCase().indexOf(q) !== -1;
+}
+
+function renderStats(){
+  var live = accounts.filter(function(a){ return a.stage === 'live'; }).length;
+  var trials = accounts.filter(function(a){ return a.stage === 'trial'; });
+  var ending = trials.filter(function(a){ var d = trialLeft(a); return d !== null && d <= 3; }).length;
+  var stale = accounts.filter(function(a){
+    return ['prospect','demo'].indexOf(a.stage) !== -1 && ageOf(a) >= 14;
+  }).length;
+  var mrr = accounts.filter(function(a){ return a.stage === 'live'; })
+    .reduce(function(s, a){ return s + (parseFloat(a.monthly_fee) || 0); }, 0);
+  var html = '';
+  function stat(n, label, cls){
+    html += '<div class="stat ' + (cls||'') + '"><b>' + n + '</b><span>' + label + '</span></div>';
+  }
+  stat(accounts.length, 'In the pipeline');
+  stat(live, 'Live', live ? 'good' : '');
+  stat(trials.length, 'On trial');
+  stat(ending, 'Trial ends ≤3 days', ending ? 'warn' : '');
+  stat(stale, 'Untouched 14 days+', stale ? 'warn' : '');
+  stat('$' + mrr.toFixed(0), 'Monthly, live clients');
+  document.getElementById('stats').innerHTML = html;
+}
+
+function cardHtml(a){
+  var pips = ['live_url','booking_url','licence_key'].map(function(k){
+    return '<i class="pip' + (a[k] ? ' on' : '') + '"></i>';
+  }).join('');
+  var age = ageOf(a);
+  var hot = (a.stage === 'prospect' || a.stage === 'demo') && age >= 14;
+  var extra = '';
+  var tl = trialLeft(a);
+  if(a.stage === 'trial' && tl !== null){
+    extra = tl < 0 ? 'trial ended' : (tl + 'd of trial left');
+  }
+  return '<div class="card" data-id="' + esc(a.id) + '">' +
+    '<b>' + esc(a.name || 'Untitled') + '</b>' +
+    '<div class="sub">' + esc([a.suburb, a.cuisine].filter(Boolean).join(' · ') || '—') + '</div>' +
+    '<div class="meta"><span class="age' + (hot ? ' hot' : '') + '">' +
+      (extra || (age + 'd since update')) + '</span>' +
+      '<span class="pips">' + pips + '</span></div>' +
+  '</div>';
+}
+
+function renderBoard(){
+  var q = document.getElementById('q').value.trim();
+  var board = document.getElementById('board');
+  var html = '';
+  STAGES.forEach(function(s){
+    var list = accounts.filter(function(a){ return (a.stage || 'prospect') === s.key && matches(a, q); });
+    html += '<div class="col"><div class="col-head">' +
+      '<i class="dot" style="background:' + s.colour + '"></i><b>' + s.label + '</b>' +
+      '<span class="n">' + list.length + '</span></div>';
+    html += list.length
+      ? list.map(cardHtml).join('')
+      : '<div class="empty-col">Nothing here yet</div>';
+    html += '</div>';
+  });
+  board.innerHTML = html;
+  [].slice.call(board.querySelectorAll('.card')).forEach(function(el){
+    el.addEventListener('click', function(){ openSheet(el.getAttribute('data-id')); });
+  });
+  renderStats();
+}
+
+/* ============================================================
+   detail sheet
+   ============================================================ */
+var openId = null;
+
+function field(label, key, val, type, opts){
+  if(type === 'select'){
+    return '<label class="f"><span>' + label + '</span><select data-k="' + key + '">' +
+      opts.map(function(o){
+        return '<option value="' + o.k + '"' + (o.k === val ? ' selected' : '') + '>' + o.v + '</option>';
+      }).join('') + '</select></label>';
+  }
+  if(type === 'textarea'){
+    return '<label class="f full"><span>' + label + '</span><textarea data-k="' + key + '">' + esc(val) + '</textarea></label>';
+  }
+  return '<label class="f' + (type === 'full' ? ' full' : '') + '"><span>' + label + '</span>' +
+    '<input type="' + (type === 'date' ? 'date' : 'text') + '" data-k="' + key + '" value="' + esc(val) + '"' +
+    (type === 'full' ? ' autocapitalize="off" autocorrect="off" spellcheck="false"' : '') + '></label>';
+}
+
+function openSheet(id){
+  var a = accounts.filter(function(x){ return x.id === id; })[0];
+  if(!a) return;
+  openId = id;
+  var people = contacts.filter(function(c){ return c.account_id === id; });
+  var log = activity.filter(function(t){ return t.account_id === id; })
+    .sort(function(x, y){ return new Date(y.created_at) - new Date(x.created_at); }).slice(0, 40);
+
+  var html = '';
+  html += '<div class="sheet-top"><div><h2>' + esc(a.name || 'Untitled') + '</h2>' +
+    '<div class="sub mono" style="color:var(--muted);font-size:11px">' +
+      esc([a.suburb, a.cuisine].filter(Boolean).join(' · ')) + '</div></div>' +
+    '<button class="icon-btn" id="closeSheet">✕</button></div>';
+
+  html += '<div class="row-actions">';
+  if(a.live_url)    html += '<a class="btn" href="' + esc(a.live_url) + '" target="_blank" rel="noopener">Open site</a>';
+  if(a.repo)        html += '<a class="btn" href="https://github.com/' + esc(a.repo) + '" target="_blank" rel="noopener">Repo</a>';
+  if(a.booking_url) html += '<a class="btn" href="' + esc(a.booking_url) + '" target="_blank" rel="noopener">Bookings</a>';
+  html += '</div>';
+
+  html += '<div class="sec"><div class="sec-t">Details</div><div class="fields">' +
+    field('Restaurant', 'name', a.name || '') +
+    field('Stage', 'stage', a.stage || 'prospect', 'select', STAGES.map(function(s){ return { k:s.key, v:s.label }; })) +
+    field('Suburb', 'suburb', a.suburb || '') +
+    field('Cuisine', 'cuisine', a.cuisine || '') +
+    field('Venue slug', 'slug', a.slug || '') +
+    field('Where from', 'source', a.source || '') +
+    '</div></div>';
+
+  html += '<div class="sec"><div class="sec-t">Delivery</div><div class="fields">' +
+    field('GitHub repo (owner/repo)', 'repo', a.repo || '', 'full') +
+    field('Live site URL', 'live_url', a.live_url || '', 'full') +
+    field('Booking page URL', 'booking_url', a.booking_url || '', 'full') +
+    field('Licence key issued', 'licence_key', a.licence_key || '', 'full') +
+    '</div></div>';
+
+  html += '<div class="sec"><div class="sec-t">Commercials</div><div class="fields">' +
+    field('Trial starts', 'trial_start', a.trial_start || '', 'date') +
+    field('Trial ends', 'trial_end', a.trial_end || '', 'date') +
+    field('Monthly fee', 'monthly_fee', a.monthly_fee || '') +
+    '</div></div>';
+
+  html += '<div class="sec"><div class="sec-t">Notes</div><div class="fields">' +
+    field('Notes', 'notes', a.notes || '', 'textarea') + '</div>' +
+    '<div class="row-actions"><button class="btn primary" id="saveAcc">Save changes</button>' +
+    '<button class="btn danger" id="delAcc">Delete</button></div>' +
+    '<div class="msg" id="sheetMsg"></div></div>';
+
+  html += '<div class="sec"><div class="sec-t">People</div>';
+  html += people.length ? people.map(function(c){
+    return '<div class="contact"><b>' + esc(c.name || 'Contact') + '</b>' +
+      '<div class="who">' + esc(c.role || '') + '</div><div class="links">' +
+      (c.email ? '<a href="mailto:' + esc(c.email) + '">' + esc(c.email) + '</a>' : '') +
+      (c.phone ? '<a href="tel:' + esc(c.phone) + '">' + esc(c.phone) + '</a>' : '') +
+      '<a href="#" data-delc="' + esc(c.id) + '">remove</a></div></div>';
+  }).join('') : '<div class="empty-col">No contacts yet</div>';
+  html += '<div class="fields" style="margin-top:10px">' +
+    '<label class="f"><span>Name</span><input type="text" id="cName"></label>' +
+    '<label class="f"><span>Role</span><input type="text" id="cRole" placeholder="Owner, manager…"></label>' +
+    '<label class="f"><span>Email</span><input type="text" id="cEmail" autocapitalize="off" spellcheck="false"></label>' +
+    '<label class="f"><span>Phone</span><input type="text" id="cPhone"></label></div>' +
+    '<div class="row-actions"><button class="btn" id="addContact">Add contact</button></div></div>';
+
+  html += '<div class="sec"><div class="sec-t">Timeline</div>' +
+    '<div class="fields"><label class="f full"><span>Log something</span>' +
+    '<textarea id="noteBody" placeholder="Called the owner, sent the demo link…"></textarea></label></div>' +
+    '<div class="row-actions">' +
+    '<button class="btn" data-log="note">Add note</button>' +
+    '<button class="btn" data-log="call">Log call</button>' +
+    '<button class="btn" data-log="meeting">Log meeting</button></div>';
+  html += '<div class="tl" style="margin-top:16px">' + (log.length ? log.map(function(t){
+    return '<div class="tl-item"><div class="when">' + new Date(t.created_at).toLocaleString() + '</div>' +
+      '<div class="what"><span class="tl-kind">' + esc(t.kind) + '</span>' + esc(t.body || '') + '</div></div>';
+  }).join('') : '<div class="empty-col">Nothing logged yet</div>') + '</div></div>';
+
+  document.getElementById('sheetIn').innerHTML = html;
+  document.getElementById('sheet').classList.add('open');
+  document.getElementById('sheetBg').classList.add('open');
+  wireSheet(a);
+}
+
+function closeSheet(){
+  document.getElementById('sheet').classList.remove('open');
+  document.getElementById('sheetBg').classList.remove('open');
+  openId = null;
+}
+
+function wireSheet(a){
+  var root = document.getElementById('sheetIn');
+  function msg(t, cls){
+    var m = document.getElementById('sheetMsg');
+    if(m){ m.textContent = t; m.className = 'msg ' + (cls || ''); }
+  }
+  document.getElementById('closeSheet').addEventListener('click', closeSheet);
+
+  document.getElementById('saveAcc').addEventListener('click', function(){
+    var patch = { id: a.id };
+    [].slice.call(root.querySelectorAll('[data-k]')).forEach(function(el){
+      patch[el.getAttribute('data-k')] = el.value.trim();
+    });
+    var stageChanged = patch.stage !== a.stage;
+    msg('Saving…');
+    saveAccount(Object.assign({}, a, patch)).then(function(){
+      if(stageChanged && !LIVE) return addActivity(a.id, 'stage', (a.stage || '?') + ' → ' + patch.stage);
+    }).then(loadAll).then(function(){
+      renderBoard(); msg('Saved.', 'ok');
+      var fresh = accounts.filter(function(x){ return x.id === a.id; })[0];
+      if(fresh) a = fresh;
+    }).catch(function(e){ msg(String(e.message || e).slice(0, 160), 'bad'); });
+  });
+
+  document.getElementById('delAcc').addEventListener('click', function(){
+    if(!confirm('Delete ' + (a.name || 'this restaurant') + ' and everything logged against it?')) return;
+    deleteAccount(a.id).then(loadAll).then(function(){ closeSheet(); renderBoard(); })
+      .catch(function(e){ msg(String(e.message || e).slice(0, 160), 'bad'); });
+  });
+
+  document.getElementById('addContact').addEventListener('click', function(){
+    var c = {
+      account_id: a.id,
+      name: document.getElementById('cName').value.trim(),
+      role: document.getElementById('cRole').value.trim(),
+      email: document.getElementById('cEmail').value.trim(),
+      phone: document.getElementById('cPhone').value.trim()
+    };
+    if(!c.name && !c.email){ msg('Give the contact a name or an email.', 'bad'); return; }
+    saveContact(c).then(loadAll).then(function(){ openSheet(a.id); })
+      .catch(function(e){ msg(String(e.message || e).slice(0, 160), 'bad'); });
+  });
+
+  [].slice.call(root.querySelectorAll('[data-delc]')).forEach(function(el){
+    el.addEventListener('click', function(e){
+      e.preventDefault();
+      deleteContact(el.getAttribute('data-delc')).then(loadAll).then(function(){ openSheet(a.id); });
+    });
+  });
+
+  [].slice.call(root.querySelectorAll('[data-log]')).forEach(function(el){
+    el.addEventListener('click', function(){
+      var body = document.getElementById('noteBody').value.trim();
+      if(!body){ msg('Write something first.', 'bad'); return; }
+      addActivity(a.id, el.getAttribute('data-log'), body).then(loadAll).then(function(){ openSheet(a.id); })
+        .catch(function(e){ msg(String(e.message || e).slice(0, 160), 'bad'); });
+    });
+  });
+}
+
+/* ============================================================
+   performance — Supabase bookings + GitHub delivery
+   ============================================================ */
+var GH = localStorage.getItem('crm_gh') || '';
+var perfCache = { stats: [], repos: {} };
+
+function rpc(fn, body){
+  return fetch(CFG.url.replace(/\/+$/,'') + '/rest/v1/rpc/' + fn, {
+    method:'POST',
+    headers:{ 'apikey':CFG.key, 'Authorization':'Bearer ' + (CFG.tok || CFG.key), 'Content-Type':'application/json' },
+    body: JSON.stringify(body || {})
+  }).then(function(r){
+    if(!r.ok) return r.text().then(function(t){ throw new Error(t || ('HTTP ' + r.status)); });
+    return r.json();
+  });
+}
+
+function ghRepo(full){
+  if(!full || full.indexOf('/') === -1) return Promise.resolve(null);
+  if(perfCache.repos[full]) return Promise.resolve(perfCache.repos[full]);
+  var h = { 'Accept':'application/vnd.github+json' };
+  if(GH) h['Authorization'] = 'Bearer ' + GH;
+  return fetch('https://api.github.com/repos/' + full, { headers:h })
+    .then(function(r){ return r.ok ? r.json() : null; })
+    .then(function(j){
+      var out = j ? { pushed_at: j.pushed_at, private: j.private, name: j.full_name } : null;
+      perfCache.repos[full] = out;
+      return out;
+    })
+    .catch(function(){ return null; });
+}
+
+function daysAgo(iso){
+  if(!iso) return null;
+  return Math.floor((Date.now() - new Date(iso).getTime()) / 86400000);
+}
+function agoText(iso){
+  var d = daysAgo(iso);
+  if(d === null) return '—';
+  if(d === 0) return 'today';
+  if(d === 1) return 'yesterday';
+  return d + 'd ago';
+}
+
+function healthOf(acc, stat, repo){
+  if(acc.stage === 'lost') return { k:'idle', t:'closed' };
+  if(acc.stage !== 'live'){
+    return { k:'idle', t: acc.stage || 'prospect' };
+  }
+  var last = stat && stat.last_booking ? daysAgo(stat.last_booking) : null;
+  if(last === null) return { k:'bad', t:'no bookings' };
+  if(last <= 7)  return { k:'good', t:'active' };
+  if(last <= 21) return { k:'warn', t:'quiet ' + last + 'd' };
+  return { k:'bad', t:'silent ' + last + 'd' };
+}
+
+function loadPerf(){
+  var days = parseInt(document.getElementById('perfDays').value, 10) || 30;
+  var body = document.getElementById('perfBody');
+  body.innerHTML = '<div class="soon">Reading the database…</div>';
+
+  var statsP = LIVE
+    ? rpc('crm_booking_stats', { p_days: days }).catch(function(e){ return { __err: String(e.message || e) }; })
+    : Promise.resolve([]);
+
+  statsP.then(function(stats){
+    var err = stats && stats.__err ? stats.__err : null;
+    if(err) stats = [];
+    perfCache.stats = stats || [];
+    var repos = accounts.map(function(a){ return a.repo; }).filter(Boolean);
+    return Promise.all(repos.slice(0, 25).map(ghRepo)).then(function(){ renderPerf(err); });
+  });
+}
+
+function statFor(acc){
+  if(!perfCache.stats.length) return null;
+  var keys = [acc.slug, acc.name].filter(Boolean).map(function(s){ return String(s).toLowerCase(); });
+  for(var i = 0; i < perfCache.stats.length; i++){
+    var v = String(perfCache.stats[i].venue || '').toLowerCase();
+    if(keys.indexOf(v) !== -1) return perfCache.stats[i];
+  }
+  /* single-tenant database: one bucket for everything */
+  if(perfCache.stats.length === 1 && /all venues|\(unassigned\)/.test(perfCache.stats[0].venue))
+    return perfCache.stats[0];
+  return null;
+}
+
+function renderPerf(err){
+  var body = document.getElementById('perfBody');
+  var tracked = accounts.filter(function(a){ return a.stage !== 'lost'; });
+
+  /* ---- headline numbers ---- */
+  var totalB = perfCache.stats.reduce(function(s, r){ return s + (+r.bookings_total || 0); }, 0);
+  var totalG = perfCache.stats.reduce(function(s, r){ return s + (+r.guests_total || 0); }, 0);
+  var liveCount = accounts.filter(function(a){ return a.stage === 'live'; }).length;
+  var deployed7 = accounts.filter(function(a){
+    var r = a.repo && perfCache.repos[a.repo];
+    return r && daysAgo(r.pushed_at) !== null && daysAgo(r.pushed_at) <= 7;
+  }).length;
+  var quiet = accounts.filter(function(a){
+    if(a.stage !== 'live') return false;
+    var s = statFor(a);
+    var d = s && s.last_booking ? daysAgo(s.last_booking) : null;
+    return d === null || d > 7;
+  }).length;
+  var s = '';
+  function card(n, l, cls){ s += '<div class="stat ' + (cls||'') + '"><b>' + n + '</b><span>' + l + '</span></div>'; }
+  card(totalB, 'Bookings in range');
+  card(totalG, 'Covers in range');
+  card(liveCount, 'Live clients', liveCount ? 'good' : '');
+  card(deployed7, 'Deployed this week');
+  card(quiet, 'Live but quiet', quiet ? 'warn' : '');
+  document.getElementById('perfStats').innerHTML = s;
+
+  /* ---- per-restaurant table ---- */
+  var html = '';
+  if(err){
+    html += '<div class="soon" style="margin-bottom:16px"><b>Booking figures unavailable</b>' +
+      esc(/crm_booking_stats/.test(err)
+        ? 'The crm_booking_stats function is not in the database yet — re-run crm-setup.sql to add it.'
+        : err.slice(0, 180)) + '</div>';
+  }
+
+  html += '<div class="sec-block"><h3>Your restaurants <small>' + tracked.length + ' tracked</small></h3><div class="ptable">';
+  html += '<div class="prow head"><span>Restaurant</span><span>Bookings</span><span class="hide-sm">Covers</span>' +
+          '<span>Last booking</span><span class="hide-sm">Last deploy</span></div>';
+  if(!tracked.length){
+    html += '<div class="prow"><span class="s">Nothing in the pipeline yet — add a restaurant first.</span></div>';
+  }
+  tracked.forEach(function(a){
+    var st = statFor(a);
+    var rp = a.repo ? perfCache.repos[a.repo] : null;
+    var hh = healthOf(a, st, rp);
+    html += '<div class="prow">' +
+      '<div><b>' + esc(a.name) + '</b><div class="s">' +
+        esc(a.suburb || a.slug || '') + ' · <span class="health ' + hh.k + '">' + hh.t + '</span></div></div>' +
+      '<div class="num">' + (st ? st.bookings_total : '—') + '</div>' +
+      '<div class="num hide-sm">' + (st ? st.guests_total : '—') + '</div>' +
+      '<div class="s">' + (st ? agoText(st.last_booking) : '—') + '</div>' +
+      '<div class="s hide-sm">' + (rp ? agoText(rp.pushed_at) : (a.repo ? 'not readable' : '—')) + '</div>' +
+    '</div>';
+  });
+  html += '</div></div>';
+
+  /* ---- venues taking bookings that are not in the CRM ---- */
+  var known = {};
+  accounts.forEach(function(a){
+    [a.slug, a.name].filter(Boolean).forEach(function(k){ known[String(k).toLowerCase()] = 1; });
+  });
+  var strays = perfCache.stats.filter(function(r){
+    var v = String(r.venue || '').toLowerCase();
+    return v && !known[v] && !/all venues|\(unassigned\)/.test(v);
+  });
+  if(strays.length){
+    html += '<div class="sec-block"><h3>Taking bookings, not in your pipeline <small>' + strays.length + '</small></h3><div class="ptable">';
+    strays.forEach(function(r){
+      html += '<div class="prow"><div><b>' + esc(r.venue) + '</b><div class="s">found in the bookings table</div></div>' +
+        '<div class="num">' + r.bookings_total + '</div>' +
+        '<div class="num hide-sm">' + r.guests_total + '</div>' +
+        '<div class="s">' + agoText(r.last_booking) + '</div>' +
+        '<div class="hide-sm"><button class="btn" data-adopt="' + esc(r.venue) + '">Add to CRM</button></div></div>';
+    });
+    html += '</div></div>';
+  }
+
+  body.innerHTML = html;
+  [].slice.call(body.querySelectorAll('[data-adopt]')).forEach(function(el){
+    el.addEventListener('click', function(){
+      var v = el.getAttribute('data-adopt');
+      saveAccount({ name:v, slug:v, stage:'live' })
+        .then(function(a){ return addActivity(a.id, 'note', 'Adopted from the bookings table'); })
+        .then(loadAll).then(function(){ renderBoard(); loadPerf(); });
+    });
+  });
+}
+
+document.getElementById('perfDays').addEventListener('change', loadPerf);
+document.getElementById('perfRefresh').addEventListener('click', function(){ perfCache.repos = {}; loadPerf(); });
+document.getElementById('perfGh').addEventListener('click', function(){
+  var b = document.getElementById('perfGhBox');
+  b.classList.toggle('hide');
+  document.getElementById('ghTok').value = GH;
+});
+document.getElementById('ghSave').addEventListener('click', function(){
+  GH = document.getElementById('ghTok').value.trim();
+  localStorage.setItem('crm_gh', GH);
+  perfCache.repos = {};
+  document.getElementById('perfGhBox').classList.add('hide');
+  loadPerf();
+});
+document.getElementById('ghClear').addEventListener('click', function(){
+  GH = ''; localStorage.removeItem('crm_gh');
+  document.getElementById('ghTok').value = '';
+  perfCache.repos = {};
+  loadPerf();
+});
+
+
+/* ============================================================
+   sending — Resend through the Supabase Edge Function
+   ============================================================ */
+var SENDER = { from: localStorage.getItem('crm_from') || '', reply: localStorage.getItem('crm_reply') || '' };
+
+function sendEmails(messages, opts){
+  opts = opts || {};
+  if(!LIVE) return Promise.reject(new Error('Sign in to Supabase first — sending goes through your Edge Function.'));
+  return fetch(CFG.url.replace(/\/+$/,'') + '/functions/v1/send-crm-email', {
+    method:'POST',
+    headers:{ 'Authorization':'Bearer ' + CFG.tok, 'apikey':CFG.key, 'Content-Type':'application/json' },
+    body: JSON.stringify({
+      messages: messages,
+      subject: opts.subject || '',
+      from: SENDER.from || undefined,
+      reply_to: SENDER.reply || undefined,
+      marketing: !!opts.marketing,
+      unsubscribe_url: opts.unsubscribe || ''
+    })
+  }).then(function(r){
+    return r.json().catch(function(){ return { error:'The function did not return JSON — is it deployed?' }; })
+      .then(function(j){
+        if(!r.ok || j.error) throw new Error(j.error || ('HTTP ' + r.status));
+        return j;
+      });
+  });
+}
+
+/* fill {tokens} from a restaurant + contact */
+function merge(tpl, acc, c){
+  var first = (c && c.name ? String(c.name).trim().split(/\s+/)[0] : '') || 'there';
+  var map = {
+    restaurant: acc.name || '',
+    first: first,
+    name: (c && c.name) || first,
+    live_url: acc.live_url || '',
+    booking_url: acc.booking_url || '',
+    trial_end: acc.trial_end || '',
+    slug: acc.slug || ''
+  };
+  return String(tpl || '').replace(/\{(\w+)\}/g, function(m, k){
+    return map[k] !== undefined ? map[k] : m;
+  });
+}
+
+function recipientsFor(stage){
+  var out = [];
+  accounts.forEach(function(a){
+    if(stage && a.stage !== stage) return;
+    contacts.filter(function(c){ return c.account_id === a.id && c.email; })
+      .forEach(function(c){ out.push({ acc:a, c:c }); });
+  });
+  return out;
+}
+
+/* ============================================================
+   email tab
+   ============================================================ */
+var TEMPLATES = {
+  intro: {
+    label: 'First approach',
+    subject: 'A website with online bookings for {restaurant}',
+    body: 'Hi {first},\n\nI build simple websites for Sydney restaurants with table bookings built in — no monthly platform fees and nothing for your staff to learn.\n\nI put a live example together so you can see it working rather than take my word for it. Have a look, and try booking a table on it:\n\n{live_url}\n\nIf it looks useful I can have {restaurant} set up the same way in a couple of days.\n\nMarc'
+  },
+  followup: {
+    label: 'Demo follow-up',
+    subject: 'Did you get a chance to look, {first}?',
+    body: 'Hi {first},\n\nJust checking you saw the demo site I sent for {restaurant}:\n\n{live_url}\n\nHappy to change anything you did not like — the photos, wording and colours are all yours to choose.\n\nMarc'
+  },
+  trial: {
+    label: 'Trial ending',
+    subject: 'Your trial finishes on {trial_end}',
+    body: 'Hi {first},\n\nA quick note that the trial for {restaurant} runs until {trial_end}.\n\nIf you would like to keep it, let me know and I will send the details. If not, no hard feelings — the site stays up until then either way.\n\nMarc'
+  },
+  welcome: {
+    label: 'Welcome / onboarding',
+    subject: 'You are live — here is everything for {restaurant}',
+    body: 'Hi {first},\n\n{restaurant} is live:\n\n{live_url}\n\nBookings come through here:\n{booking_url}\n\nAnything you want changed, just reply to this email.\n\nMarc'
+  },
+  checkin: {
+    label: 'Quiet client check-in',
+    subject: 'How are bookings going at {restaurant}?',
+    body: 'Hi {first},\n\nI noticed things have been quiet through the booking page lately. Often it is something small — the link is not on your Instagram, or the hours need updating.\n\nWant me to take a look? It takes me five minutes.\n\nMarc'
+  }
+};
+
+var emPicked = {};
+
+function renderEmail(){
+  var sel = document.getElementById('emTpl');
+  if(!sel.options.length){
+    Object.keys(TEMPLATES).forEach(function(k){
+      var o = document.createElement('option');
+      o.value = k; o.textContent = TEMPLATES[k].label;
+      sel.appendChild(o);
+    });
+    applyTemplate();
+  }
+  document.getElementById('emFrom').value = SENDER.from;
+  document.getElementById('emReply').value = SENDER.reply;
+  renderEmailList();
+}
+function applyTemplate(){
+  var t = TEMPLATES[document.getElementById('emTpl').value];
+  if(!t) return;
+  document.getElementById('emSubj').value = t.subject;
+  document.getElementById('emBody').value = t.body;
+}
+function renderEmailList(){
+  var stage = document.getElementById('emStage').value;
+  var list = recipientsFor(stage);
+  var box = document.getElementById('emList');
+  if(!list.length){
+    box.innerHTML = '<div class="empty-col">No contacts with an email' +
+      (stage ? ' at this stage' : '') + '. Add people on a restaurant record first.</div>';
+    return;
+  }
+  box.innerHTML = list.map(function(r, i){
+    var key = r.c.id;
+    return '<div class="pick' + (emPicked[key] ? ' on' : '') + '" data-k="' + esc(key) + '">' +
+      '<i class="tick"></i><div><b>' + esc(r.c.name || r.c.email) + '</b>' +
+      '<span>' + esc(r.acc.name) + ' · ' + esc(r.c.email) + '</span></div></div>';
+  }).join('');
+  [].slice.call(box.querySelectorAll('.pick')).forEach(function(el){
+    el.addEventListener('click', function(){
+      var k = el.getAttribute('data-k');
+      emPicked[k] = !emPicked[k];
+      el.classList.toggle('on', !!emPicked[k]);
+    });
+  });
+}
+function emailQueue(){
+  var stage = document.getElementById('emStage').value;
+  var subj = document.getElementById('emSubj').value;
+  var body = document.getElementById('emBody').value;
+  return recipientsFor(stage).filter(function(r){ return emPicked[r.c.id]; }).map(function(r){
+    return {
+      to: r.c.email,
+      subject: merge(subj, r.acc, r.c),
+      text: merge(body, r.acc, r.c),
+      html: '<div style="font-family:-apple-system,Segoe UI,sans-serif;font-size:15px;line-height:1.65;color:#111">' +
+            esc(merge(body, r.acc, r.c)).replace(/\n/g, '<br>') + '</div>',
+      __acc: r.acc.id
+    };
+  });
+}
+
+/* ============================================================
+   marketing tab
+   ============================================================ */
+var mkCards = [];
+function renderCards(){
+  var box = document.getElementById('mkCards');
+  box.innerHTML = mkCards.map(function(c, i){
+    return '<div class="mkcard"><div class="fields">' +
+      '<label class="f"><span>Restaurant</span><input type="text" data-c="' + i + '" data-f="title" value="' + esc(c.title) + '"></label>' +
+      '<label class="f"><span>One line about it</span><input type="text" data-c="' + i + '" data-f="blurb" value="' + esc(c.blurb) + '"></label>' +
+      '<label class="f full"><span>Site link</span><input type="text" data-c="' + i + '" data-f="site" value="' + esc(c.site) + '" autocapitalize="off" spellcheck="false"></label>' +
+      '<label class="f full"><span>Booking link</span><input type="text" data-c="' + i + '" data-f="book" value="' + esc(c.book) + '" autocapitalize="off" spellcheck="false"></label>' +
+      '</div><div class="row-actions"><button class="btn ghost" data-rm="' + i + '">Remove</button></div></div>';
+  }).join('') || '<div class="empty-col">No demos yet — add one so they can try the real thing.</div>';
+  [].slice.call(box.querySelectorAll('[data-c]')).forEach(function(el){
+    el.addEventListener('input', function(){
+      mkCards[+el.getAttribute('data-c')][el.getAttribute('data-f')] = el.value;
+    });
+  });
+  [].slice.call(box.querySelectorAll('[data-rm]')).forEach(function(el){
+    el.addEventListener('click', function(){ mkCards.splice(+el.getAttribute('data-rm'), 1); renderCards(); });
+  });
+}
+
+function campaignHtml(acc, c){
+  function v(id){ return document.getElementById(id).value.trim(); }
+  var unsub = v('mkUnsub');
+  var cards = mkCards.map(function(k){
+    return '<tr><td style="padding:0 0 14px">' +
+      '<table width="100%" cellpadding="0" cellspacing="0" style="background:#faf8f4;border:1px solid #e8e2d8;border-radius:10px">' +
+      '<tr><td style="padding:16px 18px">' +
+      '<div style="font:700 16px/1.3 Georgia,serif;color:#1b1b1b">' + esc(k.title) + '</div>' +
+      '<div style="font:400 14px/1.55 -apple-system,Segoe UI,sans-serif;color:#5a5348;padding:6px 0 12px">' + esc(k.blurb) + '</div>' +
+      (k.site ? '<a href="' + esc(k.site) + '" style="display:inline-block;background:#1b1b1b;color:#fff;text-decoration:none;font:600 13px -apple-system,sans-serif;padding:9px 16px;border-radius:100px;margin-right:8px">See the site</a>' : '') +
+      (k.book ? '<a href="' + esc(k.book) + '" style="display:inline-block;background:#c9a84c;color:#1b1b1b;text-decoration:none;font:600 13px -apple-system,sans-serif;padding:9px 16px;border-radius:100px">Try booking a table</a>' : '') +
+      '</td></tr></table></td></tr>';
+  }).join('');
+  var ctaT = v('mkCtaT'), ctaU = v('mkCtaU');
+  return '<!DOCTYPE html><html><body style="margin:0;background:#f2efe9;padding:24px 12px">' +
+    '<table width="100%" cellpadding="0" cellspacing="0"><tr><td align="center">' +
+    '<table width="100%" style="max-width:560px" cellpadding="0" cellspacing="0">' +
+    '<tr><td style="background:#fff;border-radius:14px;padding:26px 24px">' +
+    '<div style="font:800 22px/1.25 Georgia,serif;color:#1b1b1b;padding-bottom:12px">' + esc(merge(v('mkHead'), acc, c)) + '</div>' +
+    '<div style="font:400 15px/1.65 -apple-system,Segoe UI,sans-serif;color:#3a3a3a;padding-bottom:18px;white-space:pre-wrap">' +
+      esc(merge(v('mkIntro'), acc, c)) + '</div>' +
+    (cards ? '<table width="100%" cellpadding="0" cellspacing="0">' + cards + '</table>' : '') +
+    (v('mkOutro') ? '<div style="font:400 15px/1.65 -apple-system,Segoe UI,sans-serif;color:#3a3a3a;padding:6px 0 18px;white-space:pre-wrap">' +
+      esc(merge(v('mkOutro'), acc, c)) + '</div>' : '') +
+    (ctaT && ctaU ? '<div style="padding:4px 0 6px"><a href="' + esc(ctaU) + '" style="display:inline-block;background:#1b1b1b;color:#fff;text-decoration:none;font:700 14px -apple-system,sans-serif;padding:12px 22px;border-radius:100px">' + esc(ctaT) + '</a></div>' : '') +
+    '</td></tr>' +
+    '<tr><td style="padding:16px 8px;font:400 11.5px/1.6 -apple-system,sans-serif;color:#8a8378;text-align:center">' +
+      'You are receiving this because we have been in touch about your restaurant.<br>' +
+      '<a href="' + esc(unsub) + '" style="color:#8a8378">Unsubscribe</a>' +
+    '</td></tr></table></td></tr></table></body></html>';
+}
+
+function marketingQueue(){
+  var stage = document.getElementById('mkStage').value;
+  var subj = document.getElementById('mkSubj').value;
+  return recipientsFor(stage).map(function(r){
+    return {
+      to: r.c.email,
+      subject: merge(subj, r.acc, r.c),
+      html: campaignHtml(r.acc, r.c),
+      text: merge(document.getElementById('mkIntro').value, r.acc, r.c),
+      __acc: r.acc.id
+    };
+  });
+}
+function renderMkt(){
+  if(!mkCards.length) mkCards = [{ title:'', blurb:'', site:'', book:'' }];
+  renderCards();
+  var n = recipientsFor(document.getElementById('mkStage').value).length;
+  document.getElementById('mkCount').textContent = n + ' contact' + (n === 1 ? '' : 's') + ' in this segment.';
+}
+
+/* ---------- wiring ---------- */
+document.getElementById('emTpl').addEventListener('change', applyTemplate);
+document.getElementById('emStage').addEventListener('change', renderEmailList);
+document.getElementById('emAll').addEventListener('click', function(){
+  recipientsFor(document.getElementById('emStage').value).forEach(function(r){ emPicked[r.c.id] = true; });
+  renderEmailList();
+});
+document.getElementById('emNone').addEventListener('click', function(){ emPicked = {}; renderEmailList(); });
+document.getElementById('emSaveFrom').addEventListener('click', function(){
+  SENDER.from = document.getElementById('emFrom').value.trim();
+  SENDER.reply = document.getElementById('emReply').value.trim();
+  localStorage.setItem('crm_from', SENDER.from);
+  localStorage.setItem('crm_reply', SENDER.reply);
+  var m = document.getElementById('emMsg'); m.textContent = 'Sender saved.'; m.className = 'msg ok';
+});
+document.getElementById('emPrev').addEventListener('click', function(){
+  var q = emailQueue();
+  var m = document.getElementById('emMsg');
+  if(!q.length){ m.textContent = 'Tick at least one recipient.'; m.className = 'msg bad'; return; }
+  document.getElementById('emPrevBox').classList.remove('hide');
+  document.getElementById('emPrevOut').textContent = q[0].subject + '\n\n' + q[0].text;
+  m.textContent = 'Previewing the copy for ' + q[0].to; m.className = 'msg';
+});
+document.getElementById('emSend').addEventListener('click', function(){
+  var q = emailQueue();
+  var m = document.getElementById('emMsg');
+  if(!q.length){ m.textContent = 'Tick at least one recipient.'; m.className = 'msg bad'; return; }
+  if(!confirm('Send to ' + q.length + ' recipient' + (q.length === 1 ? '' : 's') + '?')) return;
+  m.textContent = 'Sending…'; m.className = 'msg';
+  sendEmails(q, { subject: document.getElementById('emSubj').value }).then(function(res){
+    m.textContent = 'Sent to ' + res.sent + (res.failed ? ' · ' + res.failed + ' failed' : '') + '.';
+    m.className = res.failed ? 'msg bad' : 'msg ok';
+    var byAcc = {};
+    q.forEach(function(x){ byAcc[x.__acc] = (byAcc[x.__acc] || 0) + 1; });
+    Promise.all(Object.keys(byAcc).map(function(id){
+      return addActivity(id, 'email', 'Sent “' + document.getElementById('emSubj').value + '” to ' + byAcc[id] + ' contact(s)');
+    })).then(loadAll).catch(function(){
+      m.textContent += ' (could not write the timeline entry)';
+    });
+  }).catch(function(e){
+    m.textContent = String(e.message || e).slice(0, 220); m.className = 'msg bad';
+  });
+});
+
+document.getElementById('mkStage').addEventListener('change', renderMkt);
+document.getElementById('mkAddCard').addEventListener('click', function(){
+  mkCards.push({ title:'', blurb:'', site:'', book:'' }); renderCards();
+});
+document.getElementById('mkPrev').addEventListener('click', function(){
+  var sample = accounts[0] || { name:'Your Restaurant' };
+  document.getElementById('mkPrevBox').classList.remove('hide');
+  document.getElementById('mkFrame').srcdoc = campaignHtml(sample, null);
+});
+document.getElementById('mkTest').addEventListener('click', function(){
+  var m = document.getElementById('mkMsg');
+  var to = prompt('Send a test to which address?', SENDER.reply || '');
+  if(!to) return;
+  var sample = accounts[0] || { name:'Your Restaurant' };
+  m.textContent = 'Sending test…'; m.className = 'msg';
+  sendEmails([{ to:to, subject:'[TEST] ' + document.getElementById('mkSubj').value,
+                html: campaignHtml(sample, null), text:'' }],
+             { marketing:true, unsubscribe: document.getElementById('mkUnsub').value.trim() })
+    .then(function(){ m.textContent = 'Test sent to ' + to + '.'; m.className = 'msg ok'; })
+    .catch(function(e){ m.textContent = String(e.message || e).slice(0, 220); m.className = 'msg bad'; });
+});
+document.getElementById('mkSend').addEventListener('click', function(){
+  var m = document.getElementById('mkMsg');
+  var unsub = document.getElementById('mkUnsub').value.trim();
+  if(!unsub){ m.textContent = 'A marketing send needs an unsubscribe link.'; m.className = 'msg bad'; return; }
+  var q = marketingQueue();
+  if(!q.length){ m.textContent = 'Nobody in this segment has an email address.'; m.className = 'msg bad'; return; }
+  if(!confirm('Send this campaign to ' + q.length + ' contact' + (q.length === 1 ? '' : 's') + '?')) return;
+  m.textContent = 'Sending…'; m.className = 'msg';
+  sendEmails(q, { subject: document.getElementById('mkSubj').value, marketing:true, unsubscribe:unsub })
+    .then(function(res){
+      m.textContent = 'Sent to ' + res.sent + (res.failed ? ' · ' + res.failed + ' failed' : '') + '.';
+      m.className = res.failed ? 'msg bad' : 'msg ok';
+      var byAcc = {};
+      q.forEach(function(x){ byAcc[x.__acc] = 1; });
+      Promise.all(Object.keys(byAcc).map(function(id){
+        return addActivity(id, 'email', 'Campaign: ' + document.getElementById('mkSubj').value);
+      })).then(loadAll).catch(function(){
+        m.textContent += ' (could not write the timeline entry)';
+      });
+    })
+    .catch(function(e){ m.textContent = String(e.message || e).slice(0, 220); m.className = 'msg bad'; });
+});
+
+/* ============================================================
+   views, config, auth
+   ============================================================ */
+var VIEWS = ['pipeline','perf','email','mkt','cfg','auth','setup'];
+function show(v){
+  VIEWS.forEach(function(x){
+    var el = document.getElementById('view' + x.charAt(0).toUpperCase() + x.slice(1));
+    if(el) el.classList.toggle('hide', x !== v);
+  });
+  [].slice.call(document.querySelectorAll('.tab')).forEach(function(t){
+    t.classList.toggle('on', t.getAttribute('data-view') === v);
+  });
+}
+[].slice.call(document.querySelectorAll('.tab')).forEach(function(t){
+  t.addEventListener('click', function(){
+    var v = t.getAttribute('data-view');
+    show(v);
+    if(v === 'perf') loadPerf();
+    if(v === 'email') renderEmail();
+    if(v === 'mkt') renderMkt();
+  });
+});
+document.getElementById('btnCfg').addEventListener('click', function(){ show('cfg'); });
+document.getElementById('sheetBg').addEventListener('click', closeSheet);
+document.getElementById('q').addEventListener('input', renderBoard);
+
+document.getElementById('addBtn').addEventListener('click', function(){
+  var name = prompt('Restaurant name');
+  if(name === null) return;
+  name = name.trim();
+  if(!name) return;
+  saveAccount({ name:name, stage:'prospect' }).then(function(a){
+    return addActivity(a.id, 'note', 'Added to the pipeline').then(function(){ return a; });
+  }).then(function(a){
+    return loadAll().then(function(){ renderBoard(); openSheet(a.id); });
+  }).catch(function(e){ alert('Could not add: ' + (e.message || e)); });
+});
+
+function setMode(){
+  var p = document.getElementById('modePill');
+  p.textContent = LIVE ? 'supabase' : 'this device';
+  p.classList.toggle('local', !LIVE);
+}
+
+document.getElementById('cfgSave').addEventListener('click', function(){
+  var u = document.getElementById('cfgUrl').value.trim().replace(/\/+$/,'').replace(/\/rest$/,'');
+  var k = document.getElementById('cfgKey').value.trim();
+  var m = document.getElementById('cfgMsg');
+  if(!u || !k){ m.textContent = 'Both fields are needed.'; m.className = 'msg bad'; return; }
+  CFG.url = u; CFG.key = k;
+  localStorage.setItem('crm_url', u); localStorage.setItem('crm_key', k);
+  m.textContent = 'Saved. Now sign in.'; m.className = 'msg ok';
+  show('auth');
+});
+document.getElementById('cfgSkip').addEventListener('click', function(){
+  LIVE = false; setMode();
+  loadAll().then(function(){ renderBoard(); show('pipeline'); });
+});
+document.getElementById('authCfg').addEventListener('click', function(){ show('cfg'); });
+
+document.getElementById('authGo').addEventListener('click', function(){
+  var m = document.getElementById('authMsg');
+  var email = document.getElementById('authEmail').value.trim();
+  var pass = document.getElementById('authPass').value;
+  if(!email || !pass){ m.textContent = 'Email and password, please.'; m.className = 'msg bad'; return; }
+  m.textContent = 'Signing in…'; m.className = 'msg';
+  fetch(CFG.url + '/auth/v1/token?grant_type=password', {
+    method:'POST',
+    headers:{ 'apikey': CFG.key, 'Content-Type':'application/json' },
+    body: JSON.stringify({ email:email, password:pass })
+  }).then(function(r){ return r.json(); }).then(function(j){
+    if(!j.access_token) throw new Error(j.error_description || j.msg || 'Sign in failed');
+    CFG.tok = j.access_token;
+    localStorage.setItem('crm_tok', j.access_token);
+    LIVE = true; setMode();
+    return loadAll().then(function(){ renderBoard(); show('pipeline'); });
+  }).catch(function(e){
+    var f = friendly(e);
+    if(f === 'TABLES_MISSING'){ m.textContent = ''; show('setup'); return; }
+    m.textContent = f; m.className = 'msg bad';
+  });
+});
+
+document.getElementById('setupRetry').addEventListener('click', function(){
+  var m = document.getElementById('setupMsg');
+  m.textContent = 'Checking…'; m.className = 'msg';
+  loadAll().then(function(){
+    renderBoard(); show('pipeline');
+  }).catch(function(e){
+    var f = friendly(e);
+    m.textContent = f === 'TABLES_MISSING'
+      ? 'Still not finding them. Did the script run all the way through without an error?'
+      : f;
+    m.className = 'msg bad';
+  });
+});
+document.getElementById('setupOffline').addEventListener('click', function(){
+  LIVE = false; setMode();
+  loadAll().then(function(){ renderBoard(); show('pipeline'); });
+});
+
+/* ---------- start ---------- */
+(function start(){
+  setMode();
+  if(CFG.url && CFG.key && CFG.tok){
+    LIVE = true; setMode();
+    loadAll().then(function(){ renderBoard(); show('pipeline'); })
+      .catch(function(e){
+        var f = friendly(e);
+        if(f === 'TABLES_MISSING'){ show('setup'); return; }
+        LIVE = false; setMode(); show('auth');
+        document.getElementById('authMsg').textContent = f;
+        document.getElementById('authMsg').className = 'msg bad';
+      });
+  } else if(CFG.url && CFG.key){
+    show('auth');
+  } else if(lsGet('crm_accounts', null)){
+    loadAll().then(function(){ renderBoard(); show('pipeline'); });
+  } else {
+    show('cfg');
+  }
+})();
+</script>
+</body>
+</html>
