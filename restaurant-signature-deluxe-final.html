@@ -671,6 +671,87 @@
   }
   .an-off{width:100%;margin-top:9px;background:transparent;border:1px solid var(--line);border-radius:100px;color:var(--muted);font-family:'Sora',sans-serif;font-weight:700;font-size:13px;padding:12px;cursor:pointer}
   .an-note{color:var(--muted);font-size:11px;margin-top:11px;line-height:1.5}
+
+  /* ---- gradient text uses the deepened ramp (falls back to --grad) ---- */
+  .logo em,h1 .g,h2 .g,.st-text .g,.contact .big .g,.band-item b,.mq-track span,.dish-price{
+    background:var(--grad-text,var(--grad));-webkit-background-clip:text;background-clip:text;color:transparent;
+  }
+  /* ---- the site name ---- */
+  .logo{color:var(--ink);font-size:16px}
+  body.is-light .logo{text-shadow:0 1px 2px rgba(255,255,255,.85)}
+  body:not(.is-light) .logo{text-shadow:0 1px 3px rgba(0,0,0,.55)}
+  /* ---- navigation: elegant motion on hover, tap and while scrolling ---- */
+  .nav-links a{
+    position:relative;display:inline-block;padding:7px 3px 9px;
+    transition:color .28s cubic-bezier(.4,0,.2,1),letter-spacing .28s cubic-bezier(.4,0,.2,1),
+               transform .2s cubic-bezier(.34,1.4,.64,1),opacity .28s;
+  }
+  /* the line sweeps out from the left, then retreats to the right on leave */
+  .nav-links a::after{
+    content:"";position:absolute;left:0;right:0;bottom:2px;height:2px;border-radius:2px;
+    background:var(--grad-text,var(--grad));
+    transform:scaleX(0);transform-origin:right;
+    transition:transform .38s cubic-bezier(.65,0,.35,1);
+  }
+  .nav-links a:hover::after,.nav-links a:focus-visible::after{transform:scaleX(1);transform-origin:left}
+  .nav-links a:hover,.nav-links a:focus-visible{
+    color:var(--ink);opacity:1;letter-spacing:.23em;transform:translateY(-2px);
+  }
+  .nav-links a:active{transform:translateY(0) scale(.95);transition-duration:.09s}
+  /* a soft halo behind the word while it is hovered */
+  .nav-links a::before{
+    content:"";position:absolute;inset:-6px -12px;border-radius:100px;z-index:-1;
+    background:var(--ink);opacity:0;transform:scale(.9);
+    transition:opacity .3s,transform .3s cubic-bezier(.34,1.4,.64,1);
+  }
+  .nav-links a:hover::before{opacity:.06;transform:scale(1)}
+  /* the section you are currently reading keeps a quiet line */
+  .nav-links a.here{color:var(--ink);opacity:1}
+  .nav-links a.here::after{transform:scaleX(1);transform-origin:left;opacity:.45;height:1.5px}
+  .nav-links a.here:hover::after{opacity:1;height:2px}
+  @media (prefers-reduced-motion: reduce){
+    .nav-links a,.nav-links a::after,.nav-links a::before{transition:none}
+    .nav-links a:hover{transform:none}
+  }
+
+  /* ---- navigation over a photo hero ---- */
+  body.is-light .nav-links a{opacity:1;text-shadow:0 1px 2px rgba(255,255,255,.9),0 0 14px rgba(255,255,255,.7)}
+  body.is-light .nav-links a[data-book]{color:var(--accent-text,var(--teal))!important}
+  body.is-light nav{background:linear-gradient(180deg,rgba(255,255,255,.55),rgba(255,255,255,0))}
+  body:not(.is-light) nav{background:linear-gradient(180deg,rgba(0,0,0,.42),rgba(0,0,0,0))}
+
+  /* ---- 1. bigger, clearer top navigation ---- */
+  .nav-links{gap:30px;font-size:13px;letter-spacing:.17em;font-weight:700}
+  .nav-links a{color:var(--ink);opacity:.82;font-weight:700}
+  .nav-links a:hover{opacity:1}
+  @media(max-width:860px){ .nav-links{gap:18px;font-size:11.5px;letter-spacing:.12em} }
+
+  /* ---- 2. hero readability over photos ---- */
+  /* a scrim between the photo and the words, tinted to match the theme */
+  .hero-media::after{
+    content:"";position:absolute;inset:0;z-index:2;pointer-events:none;
+    background:linear-gradient(180deg,rgba(0,0,0,.38),rgba(0,0,0,.22) 45%,rgba(0,0,0,.45));
+  }
+  body.is-light .hero-media::after{
+    background:linear-gradient(180deg,rgba(255,255,255,.30),rgba(255,255,255,.12) 42%,rgba(255,255,255,.55));
+  }
+  /* the animated hero has its own Photo strength and Darken controls,
+     so the blanket scrim stands down and the photos stay vivid */
+  .hero.hs-on .hero-media::after{display:none!important}
+  /* lift the words off the picture without looking heavy */
+  body.is-light .hero-stage h1{text-shadow:0 1px 0 rgba(255,255,255,.55)}
+  body.is-light .nav-links a,body.is-light .brand{text-shadow:0 1px 2px rgba(255,255,255,.75)}
+  body:not(.is-light) .nav-links a,body:not(.is-light) .brand{text-shadow:0 1px 3px rgba(0,0,0,.55)}
+  body.is-light .hero-sub,body.is-light .hero-stage p{color:var(--ink);opacity:.86}
+  body.is-light .kicker{background:rgba(255,255,255,.55);border-color:rgba(0,0,0,.12)}
+
+  /* ---- 3. logo size slider must work with the ring off too ---- */
+  .hero-orb.no-ring .orb-logo{
+    height:calc(118px * var(--orbs,1))!important;
+    max-width:calc(300px * var(--orbs,1))!important;
+  }
+  .hero-orb.no-ring .orb-initials{font-size:calc(46px * var(--orbs,1))!important}
+  .hero-orb,.hero-orb .orb-logo,.hero-orb .orb-initials{opacity:var(--orba,1)}
   .th-group{
     grid-column:1/-1;font-family:'Space Mono',monospace;font-size:9.5px;letter-spacing:.2em;
     text-transform:uppercase;color:var(--muted);margin:8px 2px 0;display:flex;align-items:center;gap:10px;
@@ -1046,7 +1127,13 @@
     <button class="an-btn" id="anLogoPick">＋ Upload logo</button>
   </div>
   <div class="an-count" id="anLogoNote"></div>
-  <img id="anLogoPrev" alt="" style="display:none;max-width:78px;max-height:78px;margin-top:9px;border-radius:10px;border:1px solid var(--line);padding:5px;background:rgba(255,255,255,.04)">
+  <img id="anLogoPrev" alt="" style="display:none;max-width:78px;max-height:78px;margin-top:9px;border-radius:10px;border:1px solid var(--line);padding:5px;background:
+    linear-gradient(45deg,rgba(128,128,128,.18) 25%,transparent 25%,transparent 75%,rgba(128,128,128,.18) 75%),
+    linear-gradient(45deg,rgba(128,128,128,.18) 25%,transparent 25%,transparent 75%,rgba(128,128,128,.18) 75%);background-size:12px 12px;background-position:0 0,6px 6px">
+  <div id="anLogoDurWrap" style="display:none">
+    <span class="an-lab">Logo animation length — <span id="anLogoDurOut">1.4s</span></span>
+    <input type="range" id="anLogoDur" min="0.8" max="5" step="0.2" value="1.4">
+  </div>
 
   <span class="an-lab">How it plays</span>
   <select id="anMode">
@@ -1084,6 +1171,9 @@
     <option value="hide">Hidden — animation only</option>
   </select>
 
+  <span class="an-lab">Photo strength — <span id="anPhotoAOut">100%</span></span>
+  <input type="range" id="anPhotoA" min="0.2" max="1.4" step="0.05" value="1">
+
   <span class="an-lab">Darken for text</span>
   <select id="anOvl">
     <option value="veil" selected>Soft veil — headline anywhere</option>
@@ -1097,7 +1187,7 @@
   <p class="an-note">Photos are compressed automatically so your published file stays light.</p>
 </div>
 <input type="file" id="anFileIn" accept="image/*" multiple data-engine>
-<input type="file" id="anLogoIn" accept="image/*" data-engine>
+<input type="file" id="anLogoIn" accept="image/*,.svg,image/svg+xml" data-engine>
 <div id="videoPanel" data-engine>
   <div class="an-head">
     <h3>Hero video</h3>
@@ -1153,6 +1243,14 @@ There is street parking on Harbour Lane and a public car park two minutes away."
     <button class="an-btn" id="asFill" style="margin-top:9px">Start from this page’s text</button>
     <p class="an-note">Write a blank line between topics. “Q:” / “A:” pairs work best — the first few become tappable suggestions. This runs entirely in the page: no account, no API key, and it keeps working offline.</p>
   </div>
+
+  <span class="an-lab">“Book a Table” floating button</span>
+  <select id="asBookBtn">
+    <option value="auto" selected>Automatic — steps aside if a chat widget is there</option>
+    <option value="right">Always bottom-right</option>
+    <option value="left">Always bottom-left</option>
+    <option value="hidden">Hide it — use the hero and footer buttons only</option>
+  </select>
 
   <button class="an-apply" id="asSave">Save assistant</button>
   <div class="an-count" id="asNote"></div>
@@ -1866,6 +1964,30 @@ There is street parking on Harbour Lane and a public car park two minutes away."
     var r = document.documentElement.style;
     THEME_VARS.forEach(function(k){ r.setProperty(CSS_NAMES[k], t[k]); });
     r.setProperty("--grad", "linear-gradient(100deg," + t.violet + " 0%," + t.blue + " 55%," + t.teal + " 100%)");
+    /* text version: deepened when the page is light, so clipped text stays readable */
+    var lightPage = bgIsLight(t.bg);
+    function deep(c){ return lightPage ? darken(c, 0.36) : c; }
+    r.setProperty("--grad-text",
+      "linear-gradient(100deg," + deep(t.violet) + " 0%," + deep(t.blue) + " 55%," + deep(t.teal) + " 100%)");
+    r.setProperty("--accent-text", deep(t.teal));
+  }
+
+  /* helpers for the deepened text gradient */
+  function bgIsLight(hex){
+    var x = String(hex || '#000').replace('#','');
+    if(x.length === 3) x = x[0]+x[0]+x[1]+x[1]+x[2]+x[2];
+    function lin(c){ c = parseInt(c,16)/255; return c <= 0.03928 ? c/12.92 : Math.pow((c+0.055)/1.055, 2.4); }
+    return (0.2126*lin(x.substr(0,2)) + 0.7152*lin(x.substr(2,2)) + 0.0722*lin(x.substr(4,2))) > 0.45;
+  }
+  function darken(hex, amt){
+    var x = String(hex || '#000').replace('#','');
+    if(x.length === 3) x = x[0]+x[0]+x[1]+x[1]+x[2]+x[2];
+    var o = '#';
+    for(var i = 0; i < 3; i++){
+      var v = Math.round(parseInt(x.substr(i*2,2),16) * (1 - amt));
+      o += ('0' + Math.max(0, Math.min(255, v)).toString(16)).slice(-2);
+    }
+    return o;
   }
   function applyTheme(t, ev){
     var reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -1882,11 +2004,27 @@ There is street parking on Harbour Lane and a public car park two minutes away."
     } else {
       setVars(t);
     }
+    markLightness();
     /* keep the custom pickers in sync */
     document.getElementById('thBg').value = toHex(t.bg);
     document.getElementById('thInk').value = toHex(t.ink);
     checkContrast();
   }
+
+  /* flag light backgrounds so the hero scrim and nav can adapt */
+  function markLightness(){
+    try {
+      var bg = getComputedStyle(document.documentElement).getPropertyValue('--bg').trim() || '#08060f';
+      var h = bg.replace('#','');
+      if(h.length === 3) h = h[0]+h[0]+h[1]+h[1]+h[2]+h[2];
+      var r = parseInt(h.substr(0,2),16)/255, g = parseInt(h.substr(2,2),16)/255, b2 = parseInt(h.substr(4,2),16)/255;
+      function lin(c){ return c <= 0.03928 ? c/12.92 : Math.pow((c+0.055)/1.055, 2.4); }
+      var L = 0.2126*lin(r) + 0.7152*lin(g) + 0.0722*lin(b2);
+      document.body.classList.toggle('is-light', L > 0.45);
+    } catch(e){}
+  }
+  markLightness();
+  document.addEventListener('DOMContentLoaded', markLightness);
 
   /* --- colour maths for "Make it yours" --- */
   function hexRgb(h){
@@ -2958,6 +3096,38 @@ There is street parking on Harbour Lane and a public car park two minutes away."
   }
   if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', wire);
   else wire();
+
+  /* ---- highlight the section the visitor is reading ---- */
+  function scrollSpy(){
+    var links = [].slice.call(document.querySelectorAll('.nav-links a[href^="#"]'))
+      .filter(function(a){ return !a.hasAttribute('data-book') && a.getAttribute('href').length > 1; });
+    if(!links.length || !window.IntersectionObserver) return;
+
+    var map = [];
+    links.forEach(function(a){
+      var sec = document.querySelector(a.getAttribute('href'));
+      if(sec) map.push({ a: a, sec: sec });
+    });
+    if(!map.length) return;
+
+    var visible = {};
+    var io = new IntersectionObserver(function(entries){
+      entries.forEach(function(en){
+        visible[en.target.id] = en.isIntersecting ? en.intersectionRatio : 0;
+      });
+      var bestId = null, best = 0;
+      Object.keys(visible).forEach(function(id){
+        if(visible[id] > best){ best = visible[id]; bestId = id; }
+      });
+      map.forEach(function(m){
+        m.a.classList.toggle('here', !!bestId && m.sec.id === bestId && best > 0.12);
+      });
+    }, { threshold: [0, 0.12, 0.3, 0.55, 0.8], rootMargin: '-18% 0px -55% 0px' });
+
+    map.forEach(function(m){ io.observe(m.sec); });
+  }
+  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', scrollSpy);
+  else scrollSpy();
 })();
 
 </script>
@@ -3221,14 +3391,64 @@ There is street parking on Harbour Lane and a public car park two minutes away."
     document.body.appendChild(s);
   }
 
+  /* ---------------------------------------------------------------
+     The floating "Book a Table" pill and any chat widget both want the
+     bottom-right corner. Third-party widgets (JotForm, Tawk, Crisp...)
+     position themselves and cannot be moved, so the pill gets out of
+     the way instead — detected at runtime rather than assumed.
+     --------------------------------------------------------------- */
+  function ourOwn(el){
+    return el.id === 'bookFab' || el.id === 'asFab' || el.id === 'asWin' ||
+           el.hasAttribute('data-engine') || el.closest('[data-engine]');
+  }
+  function cornerBlocked(fab){
+    var vw = window.innerWidth, vh = window.innerHeight;
+    var nodes = document.body ? document.body.children : [];
+    for(var i = 0; i < nodes.length; i++){
+      var el = nodes[i];
+      if(!el.getBoundingClientRect || ourOwn(el)) continue;
+      var cs;
+      try { cs = getComputedStyle(el); } catch(e){ continue; }
+      if(cs.position !== 'fixed' || cs.display === 'none' || cs.visibility === 'hidden') continue;
+      var r = el.getBoundingClientRect();
+      if(!r.width || !r.height) continue;
+      /* is it sitting in the bottom-right quadrant? */
+      if(r.right > vw - 190 && r.bottom > vh - 190) return true;
+    }
+    return false;
+  }
+  function placeBookFab(){
+    var fab = document.getElementById('bookFab');
+    if(!fab) return;
+    var d = store() || {};
+    var mode = d.bookBtn || 'auto';
+    fab.style.removeProperty('display');
+    fab.style.removeProperty('left');
+    fab.style.removeProperty('right');
+    if(mode === 'hidden'){ fab.style.display = 'none'; return; }
+    if(mode === 'left'){ fab.style.left = '18px'; fab.style.right = 'auto'; return; }
+    if(mode === 'right'){ fab.style.right = '18px'; fab.style.left = 'auto'; return; }
+    /* auto: step aside only if something else has taken the corner */
+    if(cornerBlocked(fab)){ fab.style.left = '18px'; fab.style.right = 'auto'; }
+    else { fab.style.right = '18px'; fab.style.left = 'auto'; }
+  }
+  window.__placeBookFab = placeBookFab;
+
   function boot(){
     var d = store();
     if(!d || !d.mode || d.mode === 'off') return;
     if(d.mode === 'jotform') embedJotform(d.agentId);
     else if(d.mode === 'chat' && (d.knowledge || '').trim()) build(d);
   }
-  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
-  else boot();
+  function bootAll(){
+    boot();
+    placeBookFab();
+    /* widgets often appear a second or two after the page */
+    [600, 1500, 3000, 6000].forEach(function(ms){ setTimeout(placeBookFab, ms); });
+    window.addEventListener('resize', placeBookFab);
+  }
+  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bootAll);
+  else bootAll();
 
   /* ================= edit-mode panel ================= */
   function wire(){
@@ -3279,11 +3499,26 @@ There is street parking on Harbour Lane and a public car park two minutes away."
       if(note) note.textContent = 'Added text from ' + parts.length + ' section' + (parts.length===1?'':'s') + ' \u2014 tidy it up, then save.';
     });
 
+    var bookSel = document.getElementById('asBookBtn');
+    if(bookSel){
+      var d0 = store() || {};
+      bookSel.value = d0.bookBtn || 'auto';
+      bookSel.addEventListener('change', function(){
+        var d = store() || {};
+        d.bookBtn = bookSel.value;
+        if(!d.mode) d.mode = 'off';
+        setStore(d);
+        placeBookFab();
+      });
+    }
+
     var save = document.getElementById('asSave');
     if(save) save.addEventListener('click', function(){
       var m = modeSel.value;
       if(m === 'off'){
-        setStore(null);
+        var keep = bookSel ? bookSel.value : 'auto';
+        setStore(keep === 'auto' ? null : { mode:'off', bookBtn:keep });
+        placeBookFab();
         if(note) note.textContent = 'Assistant turned off. Reload to clear it from the page.';
         panel.classList.remove('open');
         return;
@@ -3293,14 +3528,17 @@ There is street parking on Harbour Lane and a public car park two minutes away."
         var mm = raw.match(/embedjs\/([A-Za-z0-9]+)\//) || raw.match(/agent\/([A-Za-z0-9]+)/);
         var id = mm ? mm[1] : raw.replace(/[^A-Za-z0-9]/g, '');
         if(!id){ if(note) note.textContent = 'Paste your JotForm agent ID or its embed code.'; return; }
-        setStore({ mode:'jotform', agentId:id });
+        setStore({ mode:'jotform', agentId:id, bookBtn:(bookSel ? bookSel.value : 'auto') });
+        placeBookFab();
         if(note) note.textContent = 'JotForm agent saved. Reload the page to see it appear.';
       } else {
         var k = (kn.value || '').trim();
         if(k.length < 30){ if(note) note.textContent = 'Add some knowledge first \u2014 a few Q&A pairs or paragraphs.'; return; }
         setStore({ mode:'chat', knowledge:k,
           greeting:(greet.value || '').trim(),
-          title:(titleIn.value || '').trim() });
+          title:(titleIn.value || '').trim(),
+          bookBtn:(bookSel ? bookSel.value : 'auto') });
+        placeBookFab();
         if(note) note.textContent = 'Chat assistant saved \u2014 look bottom-right.';
         var old = document.getElementById('asWin'); if(old) old.remove();
         var oldF = document.getElementById('asFab'); if(oldF) oldF.remove();
@@ -3491,6 +3729,21 @@ function HeroEngine(){
       INTRO: 2.4, INTRO_EXIT: 0.45, OUTRO: 2.3, TAIL: 0.8, LOOPFADE: 0.6
     };
     S.TRBASE = { drift: 0.9, slide: 1.1, dissolve: 1.4, goldsweep: 0.9, letterbox: 1.0, pulse: 0.7 }[S.vibe] || 0.9;
+    /* logo sting length is adjustable; the hold and exit keep their proportions */
+    /* is the page light? overlays must lighten, not darken, or dark text loses contrast */
+    (function(){
+      var x = String(S.bg || '#000').replace('#','');
+      if(x.length === 3) x = x[0]+x[0]+x[1]+x[1]+x[2]+x[2];
+      function lin(c){ c = parseInt(c,16)/255; return c <= 0.03928 ? c/12.92 : Math.pow((c+0.055)/1.055, 2.4); }
+      S.lightBg = (0.2126*lin(x.substr(0,2)) + 0.7152*lin(x.substr(2,2)) + 0.0722*lin(x.substr(4,2))) > 0.45;
+    })();
+    /* how strongly the photos read; the rest fades toward the background colour */
+    var pa = o.photoAlpha == null ? 1 : o.photoAlpha;
+    S.photoFade  = 1 - Math.max(0.15, Math.min(1, pa));       /* below 100% = settle back */
+    S.photoBoost = Math.max(0, Math.min(0.6, pa - 1));        /* above 100% = richer */
+    var LOGO_DUR = Math.max(0.6, Math.min(6, o.logoDur || 1.35));
+    S.logoDur = LOGO_DUR;
+    S.INTRO = LOGO_DUR + 0.6 + S.INTRO_EXIT;
     S.N = items.length;
     S.segDur = []; S.segStart = [];
     var acc = 0;
@@ -3530,7 +3783,7 @@ function HeroEngine(){
       L.shine = document.createElement('canvas');
       L.shine.width = L.lw; L.shine.height = L.lh;
       L.shineCtx = L.shine.getContext('2d');
-      L.build = 1.35;
+      L.build = S.logoDur || 1.35;
       var lrand = mulberry(20260718);
       L.shards = []; L.quads = [];
       if (S.introStyle === 'shards'){
@@ -3601,6 +3854,14 @@ function HeroEngine(){
   }
 
   function drawImages(ctx, S, ts){
+    var boosted = false;
+    if (S.photoBoost > 0.001 && typeof ctx.filter === 'string'){
+      ctx.filter = 'saturate(' + (1 + S.photoBoost * 1.1).toFixed(2) + ') ' +
+                   'contrast(' + (1 + S.photoBoost * 0.55).toFixed(2) + ') ' +
+                   'brightness(' + (1 - S.photoBoost * 0.06).toFixed(2) + ')';
+      boosted = true;
+    }
+    try {
     var G = segState(S, ts);
     var i = G.i, local = G.local, TRc = G.TRc, q = G.q, nx = G.nx;
     var mtCur = local + trFor(S, S.segDur[(i - 1 + S.N) % S.N]);
@@ -3622,6 +3883,8 @@ function HeroEngine(){
       drawMotion(ctx, S, i, mtCur, 1);
       if (q > 0) drawMotion(ctx, S, nx, q * TRc, easeInOut(q));
     }
+
+    } finally { if (boosted) ctx.filter = 'none'; }
 
     if (S.vibe === 'goldsweep'){
       var sp = clamp01((local - 0.6) / 1.8);
@@ -3767,19 +4030,25 @@ function HeroEngine(){
 
   function drawOverlayDim(ctx, S){
     if (S.overlay === 'none') return;
+    /* on a light page the type is dark, so the scrim must LIGHTEN the photo;
+       on a dark page it darkens. Either way it is only where the words are. */
+    var c = S.lightBg ? '255,255,255' : '0,0,0';
+    var a1 = S.lightBg ? 0.34 : 0.28;
+    var a2 = S.lightBg ? 0.62 : 0.58;
+    var a3 = S.lightBg ? 0.66 : 0.6;
     if (S.overlay === 'veil'){
-      ctx.fillStyle = 'rgba(0,0,0,.28)';
+      ctx.fillStyle = 'rgba(' + c + ',' + a1 + ')';
       ctx.fillRect(0, 0, S.cw, S.ch);
     } else if (S.overlay === 'left'){
       var g = ctx.createLinearGradient(0, 0, S.cw * 0.62, 0);
-      g.addColorStop(0, 'rgba(0,0,0,.58)');
-      g.addColorStop(1, 'rgba(0,0,0,0)');
+      g.addColorStop(0, 'rgba(' + c + ',' + a2 + ')');
+      g.addColorStop(1, 'rgba(' + c + ',0)');
       ctx.fillStyle = g;
       ctx.fillRect(0, 0, S.cw, S.ch);
     } else if (S.overlay === 'bottom'){
       var g2 = ctx.createLinearGradient(0, S.ch, 0, S.ch * 0.45);
-      g2.addColorStop(0, 'rgba(0,0,0,.6)');
-      g2.addColorStop(1, 'rgba(0,0,0,0)');
+      g2.addColorStop(0, 'rgba(' + c + ',' + a3 + ')');
+      g2.addColorStop(1, 'rgba(' + c + ',0)');
       ctx.fillStyle = g2;
       ctx.fillRect(0, 0, S.cw, S.ch);
     }
@@ -3791,6 +4060,14 @@ function HeroEngine(){
 
     var ts = t - S.imagesStart;
     if (ts > 0) drawImages(ctx, S, Math.min(ts, S.segTotal - 0.001));
+
+    /* settle the photos back toward the page colour so type stays readable */
+    if (S.photoFade > 0.001){
+      ctx.globalAlpha = S.photoFade;
+      ctx.fillStyle = S.bg;
+      ctx.fillRect(0, 0, S.cw, S.ch);
+      ctx.globalAlpha = 1;
+    }
 
     drawOverlayDim(ctx, S);
 
@@ -3861,7 +4138,7 @@ function HeroEngine(){
   if(!hero || !cvs) return;
   var ctx = cvs.getContext('2d');
   var E = HeroEngine();
-  var run = null, stopped = false;
+  var run = null, stopped = false, runGen = 0;
 
   /* ---------------------------------------------------------------
      CRITICAL CSS, INJECTED BY SCRIPT — never depends on the page
@@ -3907,6 +4184,7 @@ function HeroEngine(){
   }
   function teardown(){
     stopped = true;
+    runGen++;                            /* stop every frame loop from a previous run */
     hero.classList.remove('hs-on');
     hero.classList.remove('hs-nocopy');
     var st = document.getElementById('heroStage');
@@ -3941,8 +4219,11 @@ function HeroEngine(){
     var data = store();
     if(!data || !data.media || data.media.length < 2) return;
     stopped = false;
+    var gen = ++runGen;                  /* retires any loop from a previous activation */
+    function current(){ return gen === runGen && !stopped; }
     var mode = data.mode === 'scroll' ? 'scroll' : 'loop';   /* loop = dependable default */
     var drawn = false;
+    var stingDone = false;               /* the logo plays once, then never again */
 
     var slots = [], items = [], logoEl = null, S = null;
     function buildItems(){
@@ -3968,8 +4249,10 @@ function HeroEngine(){
       S = E.setup(items, logoEl, cvs.width, cvs.height, {
         vibe: data.cfg.vibe, per: data.cfg.per || 4, bg: data.cfg.bg,
         overlay: data.cfg.overlay, place: logoEl ? (data.cfg.place || 'start') : 'none',
-        introStyle: data.cfg.introStyle, loop: false
+        introStyle: data.cfg.introStyle, logoDur: data.cfg.logoDur || 1.35,
+        photoAlpha: data.cfg.photoAlpha == null ? 1 : data.cfg.photoAlpha, loop: false
       });
+      if(stingDone) S.place = 'none';    /* keep the logo retired across rebuilds */
       if(mode === 'scroll' && !stopped){ pin(prog()); draw(); }
     }
 
@@ -4001,7 +4284,7 @@ function HeroEngine(){
     var tick = false, lastT = 0, blendFrom = 0, blendUntil = 0;
     function nowMs(){ return (window.performance && performance.now) ? performance.now() : Date.now(); }
     function draw(){
-      if(!S || stopped){ tick = false; return; }
+      if(!S || !current()){ tick = false; return; }
       var p = prog();
       pin(p);
       var target = E.scrollMap(S, p);
@@ -4028,7 +4311,7 @@ function HeroEngine(){
         : Math.min(1.2, S.segTotal * 0.4);
     }
     function idleFrame(n){
-      if(!idleOn || !S || stopped) return;
+      if(!idleOn || !S || !current()) return;
       if(idleT0 === null) idleT0 = n;
       var tt = (n - idleT0) / 1000, base = idleBase(), t;
       if(tt < base) t = tt;
@@ -4053,15 +4336,22 @@ function HeroEngine(){
     function startLoop(){
       var t0 = null;
       function frame(n){
-        if(!S || stopped) return;
+        if(!S || !current()) return;      /* an older loop stops here */
         if(t0 === null) t0 = n;
         var e = (n - t0) / 1000;
-        /* the logo sting is part of the first pass only; afterwards just the
-           photos loop, so the logo animates once when the page opens */
         var imgStart = S.imagesStart;
         var imgEnd   = S.imagesStart + S.segTotal - 0.5;
         var imgSpan  = Math.max(1.5, imgEnd - imgStart);
-        var t = (e < imgEnd) ? e : (imgStart + ((e - imgEnd) % imgSpan));
+        var t;
+        if(e < imgEnd){
+          t = e;                          /* first pass: logo sting, then the photos */
+        } else {
+          if(!stingDone){
+            stingDone = true;
+            S.place = 'none';             /* logo is done — never draw it again */
+          }
+          t = imgStart + ((e - imgEnd) % imgSpan);
+        }
         try { E.drawScene(ctx, S, t); drawn = true; } catch(err){}
         requestAnimationFrame(frame);
       }
@@ -4164,14 +4454,21 @@ function HeroEngine(){
     var s = document.getElementById('anStatus');
     if(s){ s.textContent = msg || ''; s.style.color = good ? 'var(--teal)' : '#ffd479'; }
   }
-  function compress(el, w, h, rawSrc){
+  /* photos -> JPEG (small). logos -> PNG so transparency survives:
+     a JPEG has no alpha channel, so a transparent logo would come out
+     flattened onto black. */
+  function compress(el, w, h, rawSrc, asLogo){
     try {
-      var max = 1100, sc = Math.min(1, max / Math.max(w, h));
+      var max = asLogo ? 700 : 1100;
+      if(!w || !h){ w = h = 600; }                 /* SVGs often report no size */
+      var sc = Math.min(1, max / Math.max(w, h));
       var c = document.createElement('canvas');
       c.width  = Math.max(1, Math.round(w * sc));
       c.height = Math.max(1, Math.round(h * sc));
-      c.getContext('2d').drawImage(el, 0, 0, c.width, c.height);
-      var url = c.toDataURL('image/jpeg', 0.7);
+      var g2 = c.getContext('2d');
+      g2.clearRect(0, 0, c.width, c.height);       /* keep it transparent, do not paint a background */
+      g2.drawImage(el, 0, 0, c.width, c.height);
+      var url = asLogo ? c.toDataURL('image/png') : c.toDataURL('image/jpeg', 0.7);
       if(url && url.length > 200) return { url:url, w:c.width, h:c.height };
     } catch(e){}
     if(rawSrc && rawSrc.indexOf('data:') === 0) return { url:rawSrc, w:w, h:h };
@@ -4236,6 +4533,8 @@ function HeroEngine(){
     if(c) c.classList.toggle('on', logoMode === 'file');
     var prev = document.getElementById('anLogoPrev');
     var note = document.getElementById('anLogoNote');
+    var dur = document.getElementById('anLogoDurWrap');
+    if(dur) dur.style.display = logoMode === 'none' ? 'none' : 'block';
     if(logoMode === 'file' && logoFile){
       if(prev){ prev.src = logoFile.url; prev.style.display = 'block'; }
       if(note) note.textContent = 'Uploaded logo ready \u2014 animates once at the start';
@@ -4271,6 +4570,14 @@ function HeroEngine(){
       var sr = document.getElementById('anScr');    if(sr) sr.value = data.scroll || 4;
       var so = document.getElementById('anScrOut'); if(so) so.textContent = data.scroll || 4;
       var md = document.getElementById('anMode');   if(md) md.value = data.mode === 'scroll' ? 'scroll' : 'loop';
+      var pa = document.getElementById('anPhotoA');
+      if(pa && data.cfg && data.cfg.photoAlpha != null) pa.value = data.cfg.photoAlpha;
+      var pao = document.getElementById('anPhotoAOut');
+      if(pao && pa) pao.textContent = Math.round(parseFloat(pa.value) * 100) + '%';
+      var ld = document.getElementById('anLogoDur');
+      if(ld && data.cfg && data.cfg.logoDur) ld.value = data.cfg.logoDur;
+      var lo = document.getElementById('anLogoDurOut');
+      if(lo && ld) lo.textContent = parseFloat(ld.value).toFixed(1) + 's';
     }
     setLogoBtns(); paintPicks(); syncModeUI(); say('');
     panel.classList.add('open');
@@ -4344,8 +4651,8 @@ function HeroEngine(){
         var im = new Image();
         im.onload = function(){
           var pk = compress(im, im.naturalWidth || im.width, im.naturalHeight || im.height,
-                            src.indexOf('data:') === 0 ? src : null);
-          if(!pk){ say('That logo could not be read \u2014 try a PNG or JPEG.'); return; }
+                            src.indexOf('data:') === 0 ? src : null, true);
+          if(!pk){ say('That logo could not be read \u2014 try a PNG or SVG.'); return; }
           logoFile = pk; logoMode = 'file';
           setLogoBtns();
           say('Logo added \u2014 it will animate once at the start.', true);
@@ -4360,6 +4667,18 @@ function HeroEngine(){
     });
   }
 
+  var anPhotoA = document.getElementById('anPhotoA');
+  if(anPhotoA) anPhotoA.addEventListener('input', function(){
+    var o = document.getElementById('anPhotoAOut');
+    if(o) o.textContent = Math.round(parseFloat(this.value) * 100) + '%';
+  });
+
+  var anLogoDur = document.getElementById('anLogoDur');
+  if(anLogoDur) anLogoDur.addEventListener('input', function(){
+    var o = document.getElementById('anLogoDurOut');
+    if(o) o.textContent = parseFloat(this.value).toFixed(1) + 's';
+  });
+
   var anScr = document.getElementById('anScr');
   if(anScr) anScr.addEventListener('input', function(){
     var o = document.getElementById('anScrOut'); if(o) o.textContent = this.value;
@@ -4372,7 +4691,7 @@ function HeroEngine(){
     if(src && src.indexOf('data:image/svg') === 0) src = '';
     if(src && src.indexOf('data:image/svg') !== 0){
       var im = new Image();
-      im.onload  = function(){ cb(compress(im, im.naturalWidth || im.width, im.naturalHeight || im.height, src.indexOf('data:')===0?src:null)); };
+      im.onload  = function(){ cb(compress(im, im.naturalWidth || im.width, im.naturalHeight || im.height, src.indexOf('data:')===0?src:null, true)); };
       im.onerror = function(){ cb(null); };
       im.src = src;
       return;
@@ -4414,7 +4733,15 @@ function HeroEngine(){
             bg: (getComputedStyle(document.documentElement).getPropertyValue('--bg') || '#0b0806').trim(),
             overlay: document.getElementById('anOvl').value,
             place: logoData ? 'start' : 'none',
-            introStyle: document.getElementById('anIntro').value
+            introStyle: document.getElementById('anIntro').value,
+            logoDur: (function(){
+              var s = document.getElementById('anLogoDur');
+              return s ? parseFloat(s.value) : 1.35;
+            })(),
+            photoAlpha: (function(){
+              var s = document.getElementById('anPhotoA');
+              return s ? parseFloat(s.value) : 1;
+            })()
           },
           media: picks.slice(),
           logo: logoData || null,
