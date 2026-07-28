@@ -1,0 +1,716 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Restaurant CRM — WebEscapade</title>
+<!--
+  ============================================================
+  RESTAURANT CRM  ·  step 1: pipeline + restaurant records
+  ============================================================
+  Tracks the restaurants YOU are working with — not their guests.
+  (The guest CRM lives inside the booking page; this is the
+  business layer above it.)
+
+  SETUP
+  1. Run crm-setup.sql once in your Supabase SQL editor.
+  2. Open this page, tap Settings, paste the project URL and the
+     ANON key, then sign in with your Supabase staff login.
+  3. Nothing is written into this file — the URL, key and session
+     live in this browser only, so the file is safe to publish.
+
+  Without Supabase it still runs, storing everything on this
+  device, so you can start entering restaurants straight away.
+  ============================================================
+-->
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=Space+Mono:wght@400;700&display=swap');
+  :root{
+    --bg:#070b18;--card:#0d1226;--card2:#121834;--ink:#eef1fb;--muted:#9aa3c7;
+    --line:rgba(154,163,199,.18);
+    --grad:linear-gradient(100deg,#a855f7 0%,#4f7cff 55%,#39d0c3 100%);
+    --teal:#39d0c3;--amber:#ffd479;--rose:#ff6b8a;--green:#4ade80;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  body{background:var(--bg);color:var(--ink);font-family:'Sora',-apple-system,sans-serif;line-height:1.6;-webkit-font-smoothing:antialiased;min-height:100vh}
+  .mono{font-family:'Space Mono',monospace}
+
+  /* ---------- top bar ---------- */
+  header{position:sticky;top:0;z-index:60;background:rgba(7,11,24,.88);backdrop-filter:blur(14px);border-bottom:1px solid var(--line)}
+  .bar{max-width:1180px;margin:0 auto;padding:13px 18px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+  .brand{font-weight:800;font-size:16px;letter-spacing:-.01em;white-space:nowrap}
+  .brand span{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .tabs{display:flex;gap:5px;margin-left:auto;flex-wrap:wrap}
+  .tab{
+    background:transparent;border:1px solid var(--line);border-radius:100px;color:var(--muted);
+    font-family:'Sora',sans-serif;font-weight:700;font-size:12px;padding:8px 15px;cursor:pointer;transition:.2s;
+  }
+  .tab:hover{color:var(--ink)}
+  .tab.on{color:#fff;border-color:transparent;background:var(--grad)}
+  .icon-btn{background:transparent;border:1px solid var(--line);border-radius:50%;width:34px;height:34px;color:var(--muted);cursor:pointer;font-size:14px}
+  .icon-btn:hover{color:var(--ink)}
+
+  .wrap{max-width:1180px;margin:0 auto;padding:20px 18px 90px}
+
+  /* ---------- stat strip ---------- */
+  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(132px,1fr));gap:10px;margin-bottom:20px}
+  .stat{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 16px}
+  .stat b{display:block;font-size:24px;font-weight:800;line-height:1.2}
+  .stat span{font-family:'Space Mono',monospace;font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted)}
+  .stat.warn b{color:var(--amber)}
+  .stat.good b{color:var(--green)}
+
+  /* ---------- toolbar ---------- */
+  .toolbar{display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;align-items:center}
+  .search{
+    flex:1;min-width:190px;background:var(--card);border:1px solid var(--line);border-radius:100px;
+    color:var(--ink);font-family:'Sora',sans-serif;font-size:13.5px;padding:11px 16px;outline:none;
+  }
+  .search:focus{border-color:var(--teal)}
+  .btn{
+    background:var(--card);border:1px solid var(--line);border-radius:100px;color:var(--ink);
+    font-family:'Sora',sans-serif;font-weight:700;font-size:13px;padding:11px 18px;cursor:pointer;
+  }
+  .btn:hover{border-color:var(--teal)}
+  .btn.primary{background:var(--grad);border:none;color:#fff;font-weight:800}
+  .btn.ghost{background:transparent;color:var(--muted)}
+  .btn.danger{color:var(--rose);border-color:rgba(255,107,138,.4)}
+
+  /* ---------- pipeline board ---------- */
+  .board{display:flex;gap:13px;overflow-x:auto;padding-bottom:10px;scroll-snap-type:x proximity}
+  .col{flex:0 0 265px;scroll-snap-align:start;display:flex;flex-direction:column;gap:10px}
+  .col-head{display:flex;align-items:center;gap:8px;padding:2px 4px}
+  .col-head b{font-size:12.5px;font-weight:800}
+  .col-head .n{
+    font-family:'Space Mono',monospace;font-size:10px;color:var(--muted);
+    border:1px solid var(--line);border-radius:100px;padding:1px 8px;margin-left:auto;
+  }
+  .dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+  .card{
+    background:var(--card);border:1px solid var(--line);border-radius:14px;padding:13px 14px;cursor:pointer;
+    transition:transform .18s cubic-bezier(.34,1.4,.64,1),border-color .18s;
+  }
+  .card:hover{transform:translateY(-2px);border-color:rgba(57,208,195,.45)}
+  .card:active{transform:scale(.985)}
+  .card b{display:block;font-size:14px;font-weight:700;line-height:1.35}
+  .card .sub{font-size:11.5px;color:var(--muted);margin-top:2px}
+  .card .meta{display:flex;align-items:center;gap:7px;margin-top:10px}
+  .pips{display:flex;gap:4px;margin-left:auto}
+  .pip{width:7px;height:7px;border-radius:50%;background:rgba(154,163,199,.3)}
+  .pip.on{background:var(--teal)}
+  .age{font-family:'Space Mono',monospace;font-size:9.5px;color:var(--muted)}
+  .age.hot{color:var(--amber)}
+  .empty-col{
+    border:1px dashed var(--line);border-radius:14px;padding:16px;text-align:center;
+    color:var(--muted);font-size:11.5px;
+  }
+
+  /* ---------- detail sheet ---------- */
+  .sheet-bg{position:fixed;inset:0;background:rgba(3,5,12,.72);backdrop-filter:blur(6px);z-index:80;display:none}
+  .sheet-bg.open{display:block}
+  .sheet{
+    position:fixed;top:0;right:0;bottom:0;width:min(100vw,520px);z-index:81;background:var(--card);
+    border-left:1px solid var(--line);overflow-y:auto;transform:translateX(100%);transition:transform .3s cubic-bezier(.4,0,.2,1);
+  }
+  .sheet.open{transform:none}
+  .sheet-in{padding:20px 20px 60px}
+  .sheet h2{font-size:19px;font-weight:800;line-height:1.25}
+  .sheet-top{display:flex;align-items:flex-start;gap:12px;margin-bottom:4px}
+  .sheet-top .icon-btn{margin-left:auto;flex-shrink:0}
+  .sec{margin-top:22px}
+  .sec-t{font-family:'Space Mono',monospace;font-size:9.5px;letter-spacing:.2em;text-transform:uppercase;color:var(--muted);margin-bottom:10px;display:flex;align-items:center;gap:10px}
+  .sec-t::after{content:"";flex:1;height:1px;background:var(--line)}
+  .fields{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .fields .full{grid-column:1/-1}
+  label.f{display:block}
+  label.f span{display:block;font-family:'Space Mono',monospace;font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-bottom:5px}
+  input,select,textarea{
+    width:100%;background:var(--bg);border:1px solid var(--line);border-radius:10px;color:var(--ink);
+    font-family:'Sora',sans-serif;font-size:13px;padding:10px 11px;outline:none;
+  }
+  input:focus,select:focus,textarea:focus{border-color:var(--teal)}
+  textarea{resize:vertical;min-height:70px;line-height:1.55}
+  .row-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+
+  .contact{background:var(--card2);border:1px solid var(--line);border-radius:12px;padding:11px 12px;margin-bottom:8px}
+  .contact b{font-size:13px}
+  .contact .who{font-size:11px;color:var(--muted)}
+  .contact .links{display:flex;gap:8px;margin-top:7px;flex-wrap:wrap}
+  .contact a{color:var(--teal);font-size:11.5px;text-decoration:none;border:1px solid rgba(57,208,195,.3);border-radius:100px;padding:4px 10px}
+
+  .tl{border-left:1px solid var(--line);margin-left:6px;padding-left:14px}
+  .tl-item{position:relative;padding-bottom:15px}
+  .tl-item::before{content:"";position:absolute;left:-19px;top:5px;width:8px;height:8px;border-radius:50%;background:var(--grad)}
+  .tl-item .when{font-family:'Space Mono',monospace;font-size:9.5px;color:var(--muted)}
+  .tl-item .what{font-size:13px;margin-top:2px;white-space:pre-wrap}
+  .tl-kind{font-family:'Space Mono',monospace;font-size:8.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--teal);border:1px solid rgba(57,208,195,.3);border-radius:100px;padding:1px 7px;margin-right:6px}
+
+  /* ---------- gates ---------- */
+  .gate{max-width:430px;margin:56px auto;background:var(--card);border:1px solid var(--line);border-radius:20px;padding:26px}
+  .gate h1{font-size:21px;font-weight:800;margin-bottom:6px}
+  .gate p{color:var(--muted);font-size:13.5px;margin-bottom:18px}
+  .gate label.f{margin-bottom:12px;display:block}
+  .note{color:var(--muted);font-size:12px;margin-top:14px;line-height:1.6}
+  .msg{font-family:'Space Mono',monospace;font-size:11.5px;margin-top:12px;min-height:16px}
+  .msg.bad{color:var(--rose)}
+  .msg.ok{color:var(--teal)}
+
+  .soon{background:var(--card);border:1px dashed var(--line);border-radius:16px;padding:28px;text-align:center;color:var(--muted)}
+  .soon b{display:block;color:var(--ink);font-size:15px;margin-bottom:6px}
+  .hide{display:none!important}
+  .mode-pill{
+    font-family:'Space Mono',monospace;font-size:9px;letter-spacing:.14em;text-transform:uppercase;
+    border:1px solid var(--line);border-radius:100px;padding:3px 9px;color:var(--muted);
+  }
+  .mode-pill.local{color:var(--amber);border-color:rgba(255,212,121,.35)}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="bar">
+    <div class="brand">Restaurant <span>CRM</span></div>
+    <span class="mode-pill" id="modePill">local</span>
+    <div class="tabs">
+      <button class="tab on" data-view="pipeline">Pipeline</button>
+      <button class="tab" data-view="perf">Performance</button>
+      <button class="tab" data-view="email">Email</button>
+      <button class="tab" data-view="mkt">Marketing</button>
+    </div>
+    <button class="icon-btn" id="btnCfg" title="Settings">⚙</button>
+  </div>
+</header>
+
+<!-- ============ settings ============ -->
+<div class="wrap hide" id="viewCfg">
+  <div class="gate">
+    <h1>Connect Supabase</h1>
+    <p>Paste your project URL and <b>anon</b> key. They are stored in this browser only — never written into the file — so this page is safe to publish.</p>
+    <label class="f"><span>Project URL</span><input type="text" id="cfgUrl" placeholder="https://xxxx.supabase.co" autocapitalize="off" autocorrect="off" spellcheck="false"></label>
+    <label class="f"><span>Anon key</span><input type="text" id="cfgKey" placeholder="eyJ…" autocapitalize="off" autocorrect="off" spellcheck="false"></label>
+    <div class="row-actions">
+      <button class="btn primary" id="cfgSave">Save &amp; continue</button>
+      <button class="btn ghost" id="cfgSkip">Work offline on this device</button>
+    </div>
+    <div class="msg" id="cfgMsg"></div>
+    <p class="note">Run <b>crm-setup.sql</b> in the SQL editor first — it creates the three CRM tables and leaves your bookings untouched.</p>
+  </div>
+</div>
+
+<!-- ============ sign in ============ -->
+<div class="wrap hide" id="viewAuth">
+  <div class="gate">
+    <h1>Sign in</h1>
+    <p>Use your Supabase staff login. The CRM tables are locked to signed-in users only.</p>
+    <label class="f"><span>Email</span><input type="email" id="authEmail" autocapitalize="off" autocorrect="off" spellcheck="false"></label>
+    <label class="f"><span>Password</span><input type="password" id="authPass"></label>
+    <div class="row-actions">
+      <button class="btn primary" id="authGo">Sign in</button>
+      <button class="btn ghost" id="authCfg">Change project</button>
+    </div>
+    <div class="msg" id="authMsg"></div>
+  </div>
+</div>
+
+<!-- ============ pipeline ============ -->
+<div class="wrap hide" id="viewPipeline">
+  <div class="stats" id="stats"></div>
+  <div class="toolbar">
+    <input class="search" id="q" placeholder="Search restaurants, suburbs, contacts…" autocapitalize="off">
+    <button class="btn primary" id="addBtn">+ Add restaurant</button>
+  </div>
+  <div class="board" id="board"></div>
+</div>
+
+<!-- ============ placeholders for the next steps ============ -->
+<div class="wrap hide" id="viewPerf">
+  <div class="soon"><b>Performance — next step</b>
+    Bookings and covers per restaurant from Supabase, alongside deploy activity from GitHub, so a client going quiet is visible before they churn.</div>
+</div>
+<div class="wrap hide" id="viewEmail">
+  <div class="soon"><b>Email — after that</b>
+    Invitations, demo follow-ups and trial-ending reminders sent through Resend via a Supabase Edge Function, logged to each restaurant's timeline.</div>
+</div>
+<div class="wrap hide" id="viewMkt">
+  <div class="soon"><b>Marketing — last</b>
+    A block builder producing responsive HTML with “try it live” cards linking to real demo sites, reusing the unsubscribe flow you already have.</div>
+</div>
+
+<!-- ============ detail sheet ============ -->
+<div class="sheet-bg" id="sheetBg"></div>
+<aside class="sheet" id="sheet"><div class="sheet-in" id="sheetIn"></div></aside>
+
+<script>
+/* ============================================================
+   storage layer — Supabase when configured, this device if not
+   ============================================================ */
+var CFG = {
+  url: localStorage.getItem('crm_url') || '',
+  key: localStorage.getItem('crm_key') || '',
+  tok: localStorage.getItem('crm_tok') || ''
+};
+var LIVE = false;              /* true once signed in to Supabase */
+var accounts = [], contacts = [], activity = [];
+
+function lsGet(k, d){ try { return JSON.parse(localStorage.getItem(k)) || d; } catch(e){ return d; } }
+function lsSet(k, v){ try { localStorage.setItem(k, JSON.stringify(v)); } catch(e){} }
+
+function api(path, opts){
+  opts = opts || {};
+  var h = {
+    'apikey': CFG.key,
+    'Authorization': 'Bearer ' + (CFG.tok || CFG.key),
+    'Content-Type': 'application/json'
+  };
+  if(opts.prefer) h['Prefer'] = opts.prefer;
+  return fetch(CFG.url.replace(/\/+$/,'') + '/rest/v1/' + path, {
+    method: opts.method || 'GET',
+    headers: h,
+    body: opts.body ? JSON.stringify(opts.body) : undefined
+  }).then(function(r){
+    if(!r.ok) return r.text().then(function(t){ throw new Error(t || ('HTTP ' + r.status)); });
+    return r.status === 204 ? null : r.json();
+  });
+}
+
+function uid(){ return 'loc-' + Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
+
+/* ---------- loading ---------- */
+function loadAll(){
+  if(!LIVE){
+    accounts = lsGet('crm_accounts', []);
+    contacts = lsGet('crm_contacts', []);
+    activity = lsGet('crm_activity', []);
+    return Promise.resolve();
+  }
+  return Promise.all([
+    api('crm_accounts?select=*&order=updated_at.desc'),
+    api('crm_contacts?select=*'),
+    api('crm_activity?select=*&order=created_at.desc&limit=500')
+  ]).then(function(r){
+    accounts = r[0] || []; contacts = r[1] || []; activity = r[2] || [];
+  });
+}
+
+/* ---------- writing ---------- */
+function saveAccount(a){
+  if(!LIVE){
+    var i = accounts.findIndex(function(x){ return x.id === a.id; });
+    a.updated_at = new Date().toISOString();
+    if(i < 0){ a.id = a.id || uid(); a.created_at = a.updated_at; accounts.unshift(a); }
+    else accounts[i] = a;
+    lsSet('crm_accounts', accounts);
+    return Promise.resolve(a);
+  }
+  var body = {};
+  ['name','slug','suburb','cuisine','stage','source','repo','live_url','booking_url',
+   'licence_key','trial_start','trial_end','monthly_fee','notes'].forEach(function(k){
+    body[k] = a[k] === '' ? null : a[k];
+  });
+  if(a.id){
+    return api('crm_accounts?id=eq.' + a.id, { method:'PATCH', body:body, prefer:'return=representation' })
+      .then(function(r){ return (r && r[0]) || a; });
+  }
+  return api('crm_accounts', { method:'POST', body:body, prefer:'return=representation' })
+    .then(function(r){ return (r && r[0]) || a; });
+}
+function deleteAccount(id){
+  if(!LIVE){
+    accounts = accounts.filter(function(a){ return a.id !== id; });
+    contacts = contacts.filter(function(c){ return c.account_id !== id; });
+    activity = activity.filter(function(t){ return t.account_id !== id; });
+    lsSet('crm_accounts', accounts); lsSet('crm_contacts', contacts); lsSet('crm_activity', activity);
+    return Promise.resolve();
+  }
+  return api('crm_accounts?id=eq.' + id, { method:'DELETE' });
+}
+function addActivity(accountId, kind, body, meta){
+  if(!LIVE){
+    activity.unshift({ id:uid(), account_id:accountId, kind:kind, body:body, meta:meta||null,
+                       created_at:new Date().toISOString() });
+    lsSet('crm_activity', activity);
+    return Promise.resolve();
+  }
+  return api('crm_activity', { method:'POST', body:{ account_id:accountId, kind:kind, body:body, meta:meta||null } });
+}
+function saveContact(c){
+  if(!LIVE){
+    var i = contacts.findIndex(function(x){ return x.id === c.id; });
+    if(i < 0){ c.id = c.id || uid(); c.created_at = new Date().toISOString(); contacts.push(c); }
+    else contacts[i] = c;
+    lsSet('crm_contacts', contacts);
+    return Promise.resolve(c);
+  }
+  var body = { account_id:c.account_id, name:c.name, role:c.role, email:c.email, phone:c.phone, is_primary:!!c.is_primary };
+  if(c.id) return api('crm_contacts?id=eq.' + c.id, { method:'PATCH', body:body });
+  return api('crm_contacts', { method:'POST', body:body, prefer:'return=representation' })
+    .then(function(r){ return (r && r[0]) || c; });
+}
+function deleteContact(id){
+  if(!LIVE){
+    contacts = contacts.filter(function(c){ return c.id !== id; });
+    lsSet('crm_contacts', contacts);
+    return Promise.resolve();
+  }
+  return api('crm_contacts?id=eq.' + id, { method:'DELETE' });
+}
+
+/* ============================================================
+   pipeline
+   ============================================================ */
+var STAGES = [
+  { key:'prospect', label:'Prospect',  colour:'#9aa3c7' },
+  { key:'demo',     label:'Demo sent', colour:'#a855f7' },
+  { key:'trial',    label:'Trial',     colour:'#ffd479' },
+  { key:'live',     label:'Live',      colour:'#4ade80' },
+  { key:'risk',     label:'At risk',   colour:'#ff6b8a' }
+];
+
+function daysBetween(a, b){ return Math.floor((b - a) / 86400000); }
+function ageOf(a){
+  var t = new Date(a.updated_at || a.created_at || Date.now());
+  return daysBetween(t, new Date());
+}
+function trialLeft(a){
+  if(!a.trial_end) return null;
+  return daysBetween(new Date(), new Date(a.trial_end + 'T23:59:59'));
+}
+function esc(s){
+  return String(s == null ? '' : s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function matches(a, q){
+  if(!q) return true;
+  q = q.toLowerCase();
+  var people = contacts.filter(function(c){ return c.account_id === a.id; })
+    .map(function(c){ return [c.name, c.email, c.role].join(' '); }).join(' ');
+  return [a.name, a.suburb, a.cuisine, a.slug, a.repo, people].join(' ').toLowerCase().indexOf(q) !== -1;
+}
+
+function renderStats(){
+  var live = accounts.filter(function(a){ return a.stage === 'live'; }).length;
+  var trials = accounts.filter(function(a){ return a.stage === 'trial'; });
+  var ending = trials.filter(function(a){ var d = trialLeft(a); return d !== null && d <= 3; }).length;
+  var stale = accounts.filter(function(a){
+    return ['prospect','demo'].indexOf(a.stage) !== -1 && ageOf(a) >= 14;
+  }).length;
+  var mrr = accounts.filter(function(a){ return a.stage === 'live'; })
+    .reduce(function(s, a){ return s + (parseFloat(a.monthly_fee) || 0); }, 0);
+  var html = '';
+  function stat(n, label, cls){
+    html += '<div class="stat ' + (cls||'') + '"><b>' + n + '</b><span>' + label + '</span></div>';
+  }
+  stat(accounts.length, 'In the pipeline');
+  stat(live, 'Live', live ? 'good' : '');
+  stat(trials.length, 'On trial');
+  stat(ending, 'Trial ends ≤3 days', ending ? 'warn' : '');
+  stat(stale, 'Untouched 14 days+', stale ? 'warn' : '');
+  stat('$' + mrr.toFixed(0), 'Monthly, live clients');
+  document.getElementById('stats').innerHTML = html;
+}
+
+function cardHtml(a){
+  var pips = ['live_url','booking_url','licence_key'].map(function(k){
+    return '<i class="pip' + (a[k] ? ' on' : '') + '"></i>';
+  }).join('');
+  var age = ageOf(a);
+  var hot = (a.stage === 'prospect' || a.stage === 'demo') && age >= 14;
+  var extra = '';
+  var tl = trialLeft(a);
+  if(a.stage === 'trial' && tl !== null){
+    extra = tl < 0 ? 'trial ended' : (tl + 'd of trial left');
+  }
+  return '<div class="card" data-id="' + esc(a.id) + '">' +
+    '<b>' + esc(a.name || 'Untitled') + '</b>' +
+    '<div class="sub">' + esc([a.suburb, a.cuisine].filter(Boolean).join(' · ') || '—') + '</div>' +
+    '<div class="meta"><span class="age' + (hot ? ' hot' : '') + '">' +
+      (extra || (age + 'd since update')) + '</span>' +
+      '<span class="pips">' + pips + '</span></div>' +
+  '</div>';
+}
+
+function renderBoard(){
+  var q = document.getElementById('q').value.trim();
+  var board = document.getElementById('board');
+  var html = '';
+  STAGES.forEach(function(s){
+    var list = accounts.filter(function(a){ return (a.stage || 'prospect') === s.key && matches(a, q); });
+    html += '<div class="col"><div class="col-head">' +
+      '<i class="dot" style="background:' + s.colour + '"></i><b>' + s.label + '</b>' +
+      '<span class="n">' + list.length + '</span></div>';
+    html += list.length
+      ? list.map(cardHtml).join('')
+      : '<div class="empty-col">Nothing here yet</div>';
+    html += '</div>';
+  });
+  board.innerHTML = html;
+  [].slice.call(board.querySelectorAll('.card')).forEach(function(el){
+    el.addEventListener('click', function(){ openSheet(el.getAttribute('data-id')); });
+  });
+  renderStats();
+}
+
+/* ============================================================
+   detail sheet
+   ============================================================ */
+var openId = null;
+
+function field(label, key, val, type, opts){
+  if(type === 'select'){
+    return '<label class="f"><span>' + label + '</span><select data-k="' + key + '">' +
+      opts.map(function(o){
+        return '<option value="' + o.k + '"' + (o.k === val ? ' selected' : '') + '>' + o.v + '</option>';
+      }).join('') + '</select></label>';
+  }
+  if(type === 'textarea'){
+    return '<label class="f full"><span>' + label + '</span><textarea data-k="' + key + '">' + esc(val) + '</textarea></label>';
+  }
+  return '<label class="f' + (type === 'full' ? ' full' : '') + '"><span>' + label + '</span>' +
+    '<input type="' + (type === 'date' ? 'date' : 'text') + '" data-k="' + key + '" value="' + esc(val) + '"' +
+    (type === 'full' ? ' autocapitalize="off" autocorrect="off" spellcheck="false"' : '') + '></label>';
+}
+
+function openSheet(id){
+  var a = accounts.filter(function(x){ return x.id === id; })[0];
+  if(!a) return;
+  openId = id;
+  var people = contacts.filter(function(c){ return c.account_id === id; });
+  var log = activity.filter(function(t){ return t.account_id === id; })
+    .sort(function(x, y){ return new Date(y.created_at) - new Date(x.created_at); }).slice(0, 40);
+
+  var html = '';
+  html += '<div class="sheet-top"><div><h2>' + esc(a.name || 'Untitled') + '</h2>' +
+    '<div class="sub mono" style="color:var(--muted);font-size:11px">' +
+      esc([a.suburb, a.cuisine].filter(Boolean).join(' · ')) + '</div></div>' +
+    '<button class="icon-btn" id="closeSheet">✕</button></div>';
+
+  html += '<div class="row-actions">';
+  if(a.live_url)    html += '<a class="btn" href="' + esc(a.live_url) + '" target="_blank" rel="noopener">Open site</a>';
+  if(a.repo)        html += '<a class="btn" href="https://github.com/' + esc(a.repo) + '" target="_blank" rel="noopener">Repo</a>';
+  if(a.booking_url) html += '<a class="btn" href="' + esc(a.booking_url) + '" target="_blank" rel="noopener">Bookings</a>';
+  html += '</div>';
+
+  html += '<div class="sec"><div class="sec-t">Details</div><div class="fields">' +
+    field('Restaurant', 'name', a.name || '') +
+    field('Stage', 'stage', a.stage || 'prospect', 'select', STAGES.map(function(s){ return { k:s.key, v:s.label }; })) +
+    field('Suburb', 'suburb', a.suburb || '') +
+    field('Cuisine', 'cuisine', a.cuisine || '') +
+    field('Venue slug', 'slug', a.slug || '') +
+    field('Where from', 'source', a.source || '') +
+    '</div></div>';
+
+  html += '<div class="sec"><div class="sec-t">Delivery</div><div class="fields">' +
+    field('GitHub repo (owner/repo)', 'repo', a.repo || '', 'full') +
+    field('Live site URL', 'live_url', a.live_url || '', 'full') +
+    field('Booking page URL', 'booking_url', a.booking_url || '', 'full') +
+    field('Licence key issued', 'licence_key', a.licence_key || '', 'full') +
+    '</div></div>';
+
+  html += '<div class="sec"><div class="sec-t">Commercials</div><div class="fields">' +
+    field('Trial starts', 'trial_start', a.trial_start || '', 'date') +
+    field('Trial ends', 'trial_end', a.trial_end || '', 'date') +
+    field('Monthly fee', 'monthly_fee', a.monthly_fee || '') +
+    '</div></div>';
+
+  html += '<div class="sec"><div class="sec-t">Notes</div><div class="fields">' +
+    field('Notes', 'notes', a.notes || '', 'textarea') + '</div>' +
+    '<div class="row-actions"><button class="btn primary" id="saveAcc">Save changes</button>' +
+    '<button class="btn danger" id="delAcc">Delete</button></div>' +
+    '<div class="msg" id="sheetMsg"></div></div>';
+
+  html += '<div class="sec"><div class="sec-t">People</div>';
+  html += people.length ? people.map(function(c){
+    return '<div class="contact"><b>' + esc(c.name || 'Contact') + '</b>' +
+      '<div class="who">' + esc(c.role || '') + '</div><div class="links">' +
+      (c.email ? '<a href="mailto:' + esc(c.email) + '">' + esc(c.email) + '</a>' : '') +
+      (c.phone ? '<a href="tel:' + esc(c.phone) + '">' + esc(c.phone) + '</a>' : '') +
+      '<a href="#" data-delc="' + esc(c.id) + '">remove</a></div></div>';
+  }).join('') : '<div class="empty-col">No contacts yet</div>';
+  html += '<div class="fields" style="margin-top:10px">' +
+    '<label class="f"><span>Name</span><input type="text" id="cName"></label>' +
+    '<label class="f"><span>Role</span><input type="text" id="cRole" placeholder="Owner, manager…"></label>' +
+    '<label class="f"><span>Email</span><input type="text" id="cEmail" autocapitalize="off" spellcheck="false"></label>' +
+    '<label class="f"><span>Phone</span><input type="text" id="cPhone"></label></div>' +
+    '<div class="row-actions"><button class="btn" id="addContact">Add contact</button></div></div>';
+
+  html += '<div class="sec"><div class="sec-t">Timeline</div>' +
+    '<div class="fields"><label class="f full"><span>Log something</span>' +
+    '<textarea id="noteBody" placeholder="Called the owner, sent the demo link…"></textarea></label></div>' +
+    '<div class="row-actions">' +
+    '<button class="btn" data-log="note">Add note</button>' +
+    '<button class="btn" data-log="call">Log call</button>' +
+    '<button class="btn" data-log="meeting">Log meeting</button></div>';
+  html += '<div class="tl" style="margin-top:16px">' + (log.length ? log.map(function(t){
+    return '<div class="tl-item"><div class="when">' + new Date(t.created_at).toLocaleString() + '</div>' +
+      '<div class="what"><span class="tl-kind">' + esc(t.kind) + '</span>' + esc(t.body || '') + '</div></div>';
+  }).join('') : '<div class="empty-col">Nothing logged yet</div>') + '</div></div>';
+
+  document.getElementById('sheetIn').innerHTML = html;
+  document.getElementById('sheet').classList.add('open');
+  document.getElementById('sheetBg').classList.add('open');
+  wireSheet(a);
+}
+
+function closeSheet(){
+  document.getElementById('sheet').classList.remove('open');
+  document.getElementById('sheetBg').classList.remove('open');
+  openId = null;
+}
+
+function wireSheet(a){
+  var root = document.getElementById('sheetIn');
+  function msg(t, cls){
+    var m = document.getElementById('sheetMsg');
+    if(m){ m.textContent = t; m.className = 'msg ' + (cls || ''); }
+  }
+  document.getElementById('closeSheet').addEventListener('click', closeSheet);
+
+  document.getElementById('saveAcc').addEventListener('click', function(){
+    var patch = { id: a.id };
+    [].slice.call(root.querySelectorAll('[data-k]')).forEach(function(el){
+      patch[el.getAttribute('data-k')] = el.value.trim();
+    });
+    var stageChanged = patch.stage !== a.stage;
+    msg('Saving…');
+    saveAccount(Object.assign({}, a, patch)).then(function(){
+      if(stageChanged && !LIVE) return addActivity(a.id, 'stage', (a.stage || '?') + ' → ' + patch.stage);
+    }).then(loadAll).then(function(){
+      renderBoard(); msg('Saved.', 'ok');
+      var fresh = accounts.filter(function(x){ return x.id === a.id; })[0];
+      if(fresh) a = fresh;
+    }).catch(function(e){ msg(String(e.message || e).slice(0, 160), 'bad'); });
+  });
+
+  document.getElementById('delAcc').addEventListener('click', function(){
+    if(!confirm('Delete ' + (a.name || 'this restaurant') + ' and everything logged against it?')) return;
+    deleteAccount(a.id).then(loadAll).then(function(){ closeSheet(); renderBoard(); })
+      .catch(function(e){ msg(String(e.message || e).slice(0, 160), 'bad'); });
+  });
+
+  document.getElementById('addContact').addEventListener('click', function(){
+    var c = {
+      account_id: a.id,
+      name: document.getElementById('cName').value.trim(),
+      role: document.getElementById('cRole').value.trim(),
+      email: document.getElementById('cEmail').value.trim(),
+      phone: document.getElementById('cPhone').value.trim()
+    };
+    if(!c.name && !c.email){ msg('Give the contact a name or an email.', 'bad'); return; }
+    saveContact(c).then(loadAll).then(function(){ openSheet(a.id); })
+      .catch(function(e){ msg(String(e.message || e).slice(0, 160), 'bad'); });
+  });
+
+  [].slice.call(root.querySelectorAll('[data-delc]')).forEach(function(el){
+    el.addEventListener('click', function(e){
+      e.preventDefault();
+      deleteContact(el.getAttribute('data-delc')).then(loadAll).then(function(){ openSheet(a.id); });
+    });
+  });
+
+  [].slice.call(root.querySelectorAll('[data-log]')).forEach(function(el){
+    el.addEventListener('click', function(){
+      var body = document.getElementById('noteBody').value.trim();
+      if(!body){ msg('Write something first.', 'bad'); return; }
+      addActivity(a.id, el.getAttribute('data-log'), body).then(loadAll).then(function(){ openSheet(a.id); })
+        .catch(function(e){ msg(String(e.message || e).slice(0, 160), 'bad'); });
+    });
+  });
+}
+
+/* ============================================================
+   views, config, auth
+   ============================================================ */
+var VIEWS = ['pipeline','perf','email','mkt','cfg','auth'];
+function show(v){
+  VIEWS.forEach(function(x){
+    var el = document.getElementById('view' + x.charAt(0).toUpperCase() + x.slice(1));
+    if(el) el.classList.toggle('hide', x !== v);
+  });
+  [].slice.call(document.querySelectorAll('.tab')).forEach(function(t){
+    t.classList.toggle('on', t.getAttribute('data-view') === v);
+  });
+}
+[].slice.call(document.querySelectorAll('.tab')).forEach(function(t){
+  t.addEventListener('click', function(){ show(t.getAttribute('data-view')); });
+});
+document.getElementById('btnCfg').addEventListener('click', function(){ show('cfg'); });
+document.getElementById('sheetBg').addEventListener('click', closeSheet);
+document.getElementById('q').addEventListener('input', renderBoard);
+
+document.getElementById('addBtn').addEventListener('click', function(){
+  var name = prompt('Restaurant name');
+  if(name === null) return;
+  name = name.trim();
+  if(!name) return;
+  saveAccount({ name:name, stage:'prospect' }).then(function(a){
+    return addActivity(a.id, 'note', 'Added to the pipeline').then(function(){ return a; });
+  }).then(function(a){
+    return loadAll().then(function(){ renderBoard(); openSheet(a.id); });
+  }).catch(function(e){ alert('Could not add: ' + (e.message || e)); });
+});
+
+function setMode(){
+  var p = document.getElementById('modePill');
+  p.textContent = LIVE ? 'supabase' : 'this device';
+  p.classList.toggle('local', !LIVE);
+}
+
+document.getElementById('cfgSave').addEventListener('click', function(){
+  var u = document.getElementById('cfgUrl').value.trim().replace(/\/+$/,'').replace(/\/rest$/,'');
+  var k = document.getElementById('cfgKey').value.trim();
+  var m = document.getElementById('cfgMsg');
+  if(!u || !k){ m.textContent = 'Both fields are needed.'; m.className = 'msg bad'; return; }
+  CFG.url = u; CFG.key = k;
+  localStorage.setItem('crm_url', u); localStorage.setItem('crm_key', k);
+  m.textContent = 'Saved. Now sign in.'; m.className = 'msg ok';
+  show('auth');
+});
+document.getElementById('cfgSkip').addEventListener('click', function(){
+  LIVE = false; setMode();
+  loadAll().then(function(){ renderBoard(); show('pipeline'); });
+});
+document.getElementById('authCfg').addEventListener('click', function(){ show('cfg'); });
+
+document.getElementById('authGo').addEventListener('click', function(){
+  var m = document.getElementById('authMsg');
+  var email = document.getElementById('authEmail').value.trim();
+  var pass = document.getElementById('authPass').value;
+  if(!email || !pass){ m.textContent = 'Email and password, please.'; m.className = 'msg bad'; return; }
+  m.textContent = 'Signing in…'; m.className = 'msg';
+  fetch(CFG.url + '/auth/v1/token?grant_type=password', {
+    method:'POST',
+    headers:{ 'apikey': CFG.key, 'Content-Type':'application/json' },
+    body: JSON.stringify({ email:email, password:pass })
+  }).then(function(r){ return r.json(); }).then(function(j){
+    if(!j.access_token) throw new Error(j.error_description || j.msg || 'Sign in failed');
+    CFG.tok = j.access_token;
+    localStorage.setItem('crm_tok', j.access_token);
+    LIVE = true; setMode();
+    return loadAll().then(function(){ renderBoard(); show('pipeline'); });
+  }).catch(function(e){
+    m.textContent = String(e.message || e).slice(0, 160); m.className = 'msg bad';
+  });
+});
+
+/* ---------- start ---------- */
+(function start(){
+  setMode();
+  if(CFG.url && CFG.key && CFG.tok){
+    LIVE = true; setMode();
+    loadAll().then(function(){ renderBoard(); show('pipeline'); })
+      .catch(function(){                     /* token expired — ask again */
+        LIVE = false; setMode(); show('auth');
+        document.getElementById('authMsg').textContent = 'Session expired — sign in again.';
+      });
+  } else if(CFG.url && CFG.key){
+    show('auth');
+  } else if(lsGet('crm_accounts', null)){
+    loadAll().then(function(){ renderBoard(); show('pipeline'); });
+  } else {
+    show('cfg');
+  }
+})();
+</script>
+</body>
+</html>
